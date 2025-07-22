@@ -1,0 +1,71 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config AI_MODULE
+	tristate "Enable ai"
+	default y
+	# depends on MIWEAR_APPS_FRAMEWORKS
+
+if AI_MODULE
+
+config AI_XIAOAI_ENGINE
+	bool "AI xiaoai engine"
+	default n
+
+config AI_TOOL
+	bool "AI tool"
+	default n
+
+config AI_LVGL
+	bool "AI lvgl"
+	default n
+
+choice
+	prompt "AI log level"
+	default AI_LOG_INFO
+
+config AI_LOG_DEBUG
+	bool "AI_LOG_DEBUG"
+
+config AI_LOG_INFO
+	bool "AI_LOG_INFO"
+
+config AI_LOG_WARN
+	bool "AI_LOG_WARN"
+
+config AI_LOG_ERR
+	bool "AI_LOG_ERR"
+
+config AI_LOG_SLIENT
+	bool "AI_LOG_SLIENT"
+
+endchoice
+
+if AI_TOOL
+
+config AI_TOOL_STACKSIZE
+	int "AI tool stack size"
+	default 16384
+
+config AI_TOOL_PRIORITY
+	int "AI tool priority"
+	default 100
+
+endif # AI_TOOL
+
+if AI_LVGL
+
+config AI_LVGL_STACKSIZE
+	int "AI lvgl stack size"
+	default 65536# 16384
+
+config AI_LVGL_PRIORITY
+	int "AI lvgl priority"
+	default 100
+
+endif # AI_LVGL
+
+
+endif # AI_MODULE
