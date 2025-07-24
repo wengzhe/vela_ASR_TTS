@@ -67,6 +67,8 @@ typedef void (*conversation_engine_uvasyncq_cb_t)(uv_async_queue_t* asyncq, void
 typedef struct conversation_engine_init_params {
     uv_loop_t* loop;
     const char* language;
+    const char* voice;
+    const char* instructions;
     int silence_timeout;
     const char* app_id;
     const char* app_key;

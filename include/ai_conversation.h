@@ -43,6 +43,8 @@ typedef struct conversation_init_params {
     const char* voice; // zh_xiaoyun_bigtts
     const char* instructions; // system prompt
     int timeout; // 30000ms
+    const char* app_id;
+    const char* app_key;
     conversation_engine_type engine_type;
 } conversation_init_params_t;
 
@@ -96,6 +98,13 @@ typedef void (*conversation_callback_t)(conversation_event_t event,
 
 /**
  * @brief Create ai conversation engine.
+ * @param[in] param conversation init params
+ * @return conversation engine handle
+ */
+conversation_handle_t ai_conversation_create_engine(const conversation_init_params_t* param);
+
+/**
+ * @brief Create ai conversation engine with auth.
  * @param[in] param conversation init params
  * @param[in] auth conversation auth info
  * @return conversation engine handle

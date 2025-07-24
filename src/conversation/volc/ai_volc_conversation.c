@@ -43,10 +43,55 @@
  * Private Types
  ****************************************************************************/
 
+// VolcEngine Realtime API Configuration
+#define VOLC_CONVERSATION_APP_ID "default_app_id"
+#define VOLC_CONVERSATION_ACCESS_TOKEN "default_access_token"
 #define VOLC_CONVERSATION_URL "ai-gateway.vei.volces.com"
+#define VOLC_CONVERSATION_HOST "ai-gateway.vei.volces.com"
 #define VOLC_CONVERSATION_PATH "/v1/realtime"
 #define VOLC_CONVERSATION_PORT 443
+#define VOLC_CLIENT_PROTOCOL_NAME ""
+
+// Buffer and Timing Configuration  
 #define VOLC_BUFFER_SIZE 64 * 1024
+#define VOLC_TIMEOUT 1000 // milliseconds
+#define VOLC_LOOP_INTERVAL 10000
+
+// WebSocket Message Types (Realtime API)
+#define VOLC_REALTIME_SESSION_CREATE "session.create"
+#define VOLC_REALTIME_SESSION_UPDATE "session.update"
+#define VOLC_REALTIME_INPUT_AUDIO_BUFFER_APPEND "input_audio_buffer.append"
+#define VOLC_REALTIME_INPUT_AUDIO_BUFFER_COMMIT "input_audio_buffer.commit"
+#define VOLC_REALTIME_INPUT_AUDIO_BUFFER_CLEAR "input_audio_buffer.clear"
+#define VOLC_REALTIME_CONVERSATION_ITEM_CREATE "conversation.item.create"
+#define VOLC_REALTIME_RESPONSE_CREATE "response.create"
+#define VOLC_REALTIME_RESPONSE_CANCEL "response.cancel"
+
+// WebSocket Response Types
+#define VOLC_REALTIME_ERROR "error"
+#define VOLC_REALTIME_SESSION_CREATED "session.created"
+#define VOLC_REALTIME_SESSION_UPDATED "session.updated"
+#define VOLC_REALTIME_INPUT_AUDIO_BUFFER_COMMITTED "input_audio_buffer.committed"
+#define VOLC_REALTIME_INPUT_AUDIO_BUFFER_CLEARED "input_audio_buffer.cleared"
+#define VOLC_REALTIME_INPUT_AUDIO_BUFFER_SPEECH_STARTED "input_audio_buffer.speech_started"
+#define VOLC_REALTIME_INPUT_AUDIO_BUFFER_SPEECH_STOPPED "input_audio_buffer.speech_stopped"
+#define VOLC_REALTIME_CONVERSATION_ITEM_CREATED "conversation.item.created"
+#define VOLC_REALTIME_CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_COMPLETED "conversation.item.input_audio_transcription.completed"
+#define VOLC_REALTIME_CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_FAILED "conversation.item.input_audio_transcription.failed"
+#define VOLC_REALTIME_RESPONSE_CREATED "response.created"
+#define VOLC_REALTIME_RESPONSE_DONE "response.done"
+#define VOLC_REALTIME_RESPONSE_OUTPUT_ITEM_ADDED "response.output_item.added"
+#define VOLC_REALTIME_RESPONSE_OUTPUT_ITEM_DONE "response.output_item.done"
+#define VOLC_REALTIME_RESPONSE_CONTENT_PART_ADDED "response.content_part.added"
+#define VOLC_REALTIME_RESPONSE_CONTENT_PART_DONE "response.content_part.done"
+#define VOLC_REALTIME_RESPONSE_TEXT_DELTA "response.text.delta"
+#define VOLC_REALTIME_RESPONSE_TEXT_DONE "response.text.done"
+#define VOLC_REALTIME_RESPONSE_AUDIO_TRANSCRIPT_DELTA "response.audio_transcript.delta"
+#define VOLC_REALTIME_RESPONSE_AUDIO_TRANSCRIPT_DONE "response.audio_transcript.done"
+#define VOLC_REALTIME_RESPONSE_AUDIO_DELTA "response.audio.delta"
+#define VOLC_REALTIME_RESPONSE_AUDIO_DONE "response.audio.done"
+#define VOLC_REALTIME_RESPONSE_FUNCTION_CALL_ARGUMENTS_DELTA "response.function_call_arguments.delta"
+#define VOLC_REALTIME_RESPONSE_FUNCTION_CALL_ARGUMENTS_DONE "response.function_call_arguments.done"
 
 typedef enum {
     VOLC_STATE_DISCONNECTED,
@@ -71,6 +116,10 @@ typedef struct volc_conversation_engine {
     
     // Configuration
     conversation_engine_init_params_t config;
+    
+    // Authentication
+    char* app_id;
+    char* app_key;
     
     // Send buffer
     ai_ring_buffer_t send_buffer;
@@ -247,7 +296,7 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
     
     const char* type = json_object_get_string(type_obj);
     
-    if (strcmp(type, "session.created") == 0) {
+    if (strcmp(type, VOLC_REALTIME_SESSION_CREATED) == 0) {
         json_object* session_obj;
         if (json_object_object_get_ex(json, "session", &session_obj)) {
             json_object* id_obj;
@@ -264,12 +313,12 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
         volc_conversation_send_event(engine, conversation_engine_event_start, 
                                    engine->session_id, conversation_engine_error_success);
         
-    } else if (strcmp(type, "input_audio_buffer.committed") == 0) {
+    } else if (strcmp(type, VOLC_REALTIME_INPUT_AUDIO_BUFFER_COMMITTED) == 0) {
         engine->state = VOLC_STATE_PROCESSING;
                 volc_conversation_send_event(engine, conversation_engine_event_start,
                                      NULL, conversation_engine_error_success);
         
-    } else if (strcmp(type, "conversation.item.input_audio_transcription.completed") == 0) {
+    } else if (strcmp(type, VOLC_REALTIME_CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_COMPLETED) == 0) {
         json_object* transcript_obj;
         if (json_object_object_get_ex(json, "transcript", &transcript_obj)) {
             const char* transcript = json_object_get_string(transcript_obj);
@@ -277,7 +326,7 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
                                        transcript, conversation_engine_error_success);
         }
         
-    } else if (strcmp(type, "response.created") == 0) {
+    } else if (strcmp(type, VOLC_REALTIME_RESPONSE_CREATED) == 0) {
         json_object* response_obj;
         if (json_object_object_get_ex(json, "response", &response_obj)) {
             json_object* id_obj;
@@ -294,7 +343,7 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
         volc_conversation_send_event(engine, conversation_engine_event_start, 
                                    NULL, conversation_engine_error_success);
         
-    } else if (strcmp(type, "response.audio.delta") == 0) {
+    } else if (strcmp(type, VOLC_REALTIME_RESPONSE_AUDIO_DELTA) == 0) {
         json_object* delta_obj;
         if (json_object_object_get_ex(json, "delta", &delta_obj)) {
             const char* audio_b64 = json_object_get_string(delta_obj);
@@ -309,7 +358,7 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
             }
         }
         
-    } else if (strcmp(type, "response.audio_transcript.delta") == 0) {
+    } else if (strcmp(type, VOLC_REALTIME_RESPONSE_AUDIO_TRANSCRIPT_DELTA) == 0) {
         json_object* delta_obj;
         if (json_object_object_get_ex(json, "delta", &delta_obj)) {
             const char* text_delta = json_object_get_string(delta_obj);
@@ -317,7 +366,7 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
                                        text_delta, conversation_engine_error_success);
         }
         
-    } else if (strcmp(type, "response.done") == 0) {
+    } else if (strcmp(type, VOLC_REALTIME_RESPONSE_DONE) == 0) {
         engine->state = VOLC_STATE_SESSION_CREATED;
         volc_conversation_send_event(engine, conversation_engine_event_complete, 
                                    NULL, conversation_engine_error_success);
@@ -327,7 +376,7 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
             engine->current_response_id = NULL;
         }
         
-    } else if (strcmp(type, "error") == 0) {
+    } else if (strcmp(type, VOLC_REALTIME_ERROR) == 0) {
         json_object* error_obj;
         const char* error_message = "Unknown error";
         if (json_object_object_get_ex(json, "error", &error_obj)) {
@@ -444,6 +493,10 @@ static int volc_conversation_init(void* engine, const conversation_engine_init_p
     // 复制配置
     memcpy(&volc_engine->config, param, sizeof(conversation_engine_init_params_t));
     
+    // 设置认证信息
+    volc_engine->app_id = param->app_id ? strdup(param->app_id) : strdup(VOLC_CONVERSATION_APP_ID);
+    volc_engine->app_key = param->app_key ? strdup(param->app_key) : strdup(VOLC_CONVERSATION_ACCESS_TOKEN);
+    
     // 初始化发送缓冲区
     volc_engine->send_buffer_data = malloc(VOLC_BUFFER_SIZE);
     if (!volc_engine->send_buffer_data) {
@@ -493,6 +546,12 @@ static int volc_conversation_uninit(void* engine)
     }
     if (volc_engine->current_response_id) {
         free(volc_engine->current_response_id);
+    }
+    if (volc_engine->app_id) {
+        free(volc_engine->app_id);
+    }
+    if (volc_engine->app_key) {
+        free(volc_engine->app_key);
     }
     
     AI_INFO("VolcEngine conversation uninitialized");
@@ -601,7 +660,7 @@ static int volc_conversation_write_audio(void* engine, const char* data, int len
     
     // 构建JSON消息
     json_object* json = json_object_new_object();
-    json_object_object_add(json, "type", json_object_new_string("input_audio_buffer.append"));
+    json_object_object_add(json, "type", json_object_new_string(VOLC_REALTIME_INPUT_AUDIO_BUFFER_APPEND));
     json_object_object_add(json, "audio", json_object_new_string(audio_b64));
     
     int ret = volc_conversation_send_json_message(volc_engine, json);
@@ -628,7 +687,7 @@ static int volc_conversation_finish(void* engine)
     
     // 提交音频缓冲区
     json_object* commit_json = json_object_new_object();
-    json_object_object_add(commit_json, "type", json_object_new_string("input_audio_buffer.commit"));
+    json_object_object_add(commit_json, "type", json_object_new_string(VOLC_REALTIME_INPUT_AUDIO_BUFFER_COMMIT));
     
     int ret = volc_conversation_send_json_message(volc_engine, commit_json);
     json_object_put(commit_json);
@@ -639,7 +698,7 @@ static int volc_conversation_finish(void* engine)
     
     // 请求响应
     json_object* response_json = json_object_new_object();
-    json_object_object_add(response_json, "type", json_object_new_string("response.create"));
+    json_object_object_add(response_json, "type", json_object_new_string(VOLC_REALTIME_RESPONSE_CREATE));
     
     ret = volc_conversation_send_json_message(volc_engine, response_json);
     json_object_put(response_json);
