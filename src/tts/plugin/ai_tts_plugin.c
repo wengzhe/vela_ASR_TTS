@@ -46,7 +46,7 @@ void* tts_plugin_init(tts_engine_plugin_t* plugin, const tts_engine_init_params_
     return priv_ctx;
 }
 
-void tts_plugin_uinit(tts_engine_plugin_t* plugin, void* engine, int sync)
+void tts_plugin_uninit(tts_engine_plugin_t* plugin, void* engine, int sync)
 {
     if (plugin->uninit && engine) {
         AI_INFO("AI plugin:%s uninit", plugin->name);

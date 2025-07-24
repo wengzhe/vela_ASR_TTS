@@ -46,7 +46,7 @@ void* voice_plugin_init(voice_plugin_t* plugin, const voice_init_params_t* param
     return priv_ctx;
 }
 
-void voice_plugin_uinit(voice_plugin_t* plugin, void* engine, int sync)
+void voice_plugin_uninit(voice_plugin_t* plugin, void* engine, int sync)
 {
     if (plugin->uninit && engine) {
         AI_INFO("AI plugin:%s uninit", plugin->name);

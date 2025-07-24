@@ -215,7 +215,7 @@ CMD0(create_asr_engine)
     for (i = 0; i < AITOOL_MAX_CHAIN; i++) {
         if (!aitool->chain[i].handle) {
             param.loop = &aitool->loop;
-            param.slience_timeout = 3000;
+            param.silence_timeout = 3000;
             aitool->chain[i].handle = ai_asr_create_engine(&param);
             aitool->chain[i].id = i;
             aitool->chain[i].handle_type = AITOOL_ASR;

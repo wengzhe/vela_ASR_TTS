@@ -47,7 +47,7 @@ void* conversation_plugin_init(conversation_engine_plugin_t* plugin,
     return priv_ctx;
 }
 
-void conversation_plugin_uinit(conversation_engine_plugin_t* plugin, void* engine, int sync)
+void conversation_plugin_uninit(conversation_engine_plugin_t* plugin, void* engine, int sync)
 {
     if (plugin->uninit && engine) {
         AI_INFO("AI plugin:%s uninit", plugin->name);

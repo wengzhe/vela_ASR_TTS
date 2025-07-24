@@ -25,7 +25,7 @@
 #include <uv_async_queue.h>
 
 typedef enum {
-    conversation_engine_event_unkonwn,
+    conversation_engine_event_unknown,
     conversation_engine_event_start,
     conversation_engine_event_stop,
     conversation_engine_event_complete,
@@ -67,7 +67,7 @@ typedef void (*conversation_engine_uvasyncq_cb_t)(uv_async_queue_t* asyncq, void
 typedef struct conversation_engine_init_params {
     uv_loop_t* loop;
     const char* language;
-    int slience_timeout;
+    int silence_timeout;
     const char* app_id;
     const char* app_key;
     conversation_engine_uvasyncq_cb_t cb;

@@ -602,7 +602,7 @@ static int volc_tts_callback_bigtts(struct lws* wsi, enum lws_callback_reasons r
                 state->ctx->cb(tts_engine_event_result, &cb_result, state->ctx->cookie);
                 AI_INFO("tts_volc result complete:%d\n", result.completed);
             } else if (result.error_msg && result.code != 0) {
-                cb_result.error_code = tts_engine_error_unkonwn;
+                cb_result.error_code = tts_engine_error_unknown;
                 cb_result.result = NULL;
                 cb_result.len = 0;
                 state->ctx->cb(tts_engine_event_error, &cb_result, state->ctx->cookie);

@@ -24,7 +24,7 @@
 #include <uv_async_queue.h>
 
 typedef enum {
-    tts_engine_event_unkonwn,
+    tts_engine_event_unknown,
     tts_engine_event_start,
     tts_engine_event_stop,
     tts_engine_event_complete,
@@ -34,7 +34,7 @@ typedef enum {
 
 typedef enum {
     tts_engine_error_success = 0,
-    tts_engine_error_unkonwn,
+    tts_engine_error_unknown,
     tts_engine_error_network,
     tts_engine_error_auth,
     tts_engine_error_listen_timeout,
@@ -64,7 +64,7 @@ typedef void (*tts_engine_uvasyncq_cb_t)(uv_async_queue_t* asyncq, void* data);
 typedef struct tts_engine_init_params {
     uv_loop_t* loop;
     const char* language;
-    int slience_timeout;
+    int silence_timeout;
     const char* app_id;
     const char* app_key;
     tts_engine_uvasyncq_cb_t cb;

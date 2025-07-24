@@ -35,8 +35,8 @@
 #include "ai_tts.h"
 #include "ai_tts_plugin.h"
 
-#define TTS_DEFAULT_SLIENCE_TIMEOUT 3000
-#define TTS_MAX_SLIENCE_TIMEOUT 15000
+#define TTS_DEFAULT_SILENCE_TIMEOUT 3000
+#define TTS_MAX_SILENCE_TIMEOUT 15000
 #define TTS_BUFFER_MAX_SIZE 128 * 1024
 
 /****************************************************************************
@@ -265,7 +265,7 @@ static int ai_tts_close_handler(tts_context_t* ctx)
     }
 
     if (ctx->engine) {
-        tts_plugin_uinit(ctx->plugin, ctx->engine, 0);
+        tts_plugin_uninit(ctx->plugin, ctx->engine, 0);
         ctx->engine = NULL;
     }
 
@@ -502,12 +502,12 @@ static void ai_tts_map_params(tts_context_t* ctx, const tts_init_params_t* in_pa
 {
     out_param->loop = in_param->loop;
     out_param->language = in_param->language ?: "zh-CN";
-    if (in_param->slience_timeout <= TTS_MAX_SLIENCE_TIMEOUT && in_param->slience_timeout > 0)
-        out_param->slience_timeout = in_param->slience_timeout;
-    else if (in_param->slience_timeout > TTS_MAX_SLIENCE_TIMEOUT)
-        out_param->slience_timeout = TTS_MAX_SLIENCE_TIMEOUT;
+    if (in_param->silence_timeout <= TTS_MAX_SILENCE_TIMEOUT && in_param->silence_timeout > 0)
+        out_param->silence_timeout = in_param->silence_timeout;
+    else if (in_param->silence_timeout > TTS_MAX_SILENCE_TIMEOUT)
+        out_param->silence_timeout = TTS_MAX_SILENCE_TIMEOUT;
     else
-        out_param->slience_timeout = TTS_DEFAULT_SLIENCE_TIMEOUT;
+        out_param->silence_timeout = TTS_DEFAULT_SILENCE_TIMEOUT;
     out_param->app_id = in_param->app_id ?: "";
     out_param->app_key = in_param->app_key ?: "";
     out_param->cb = ai_tts_async_cb;
@@ -679,7 +679,7 @@ tts_handle_t ai_tts_create_engine(const tts_init_params_t* param)
     AI_INFO("ai_tts_create_engine:%p", ctx->loop);
 
     if (ctx->loop == NULL) {
-        tts_plugin_uinit(plugin, ctx->engine, 1);
+        tts_plugin_uninit(plugin, ctx->engine, 1);
         free(ctx);
         return NULL;
     }

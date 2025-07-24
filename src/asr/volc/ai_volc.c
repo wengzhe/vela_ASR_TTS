@@ -71,7 +71,7 @@
 
 #define VOLC_HEADER_LEN 12
 #define VOLC_TIMEOUT 1000 // milliseconds
-#define VOLC_SLIENCE_TIMEOUT 200000 // microseconds
+#define VOLC_SILENCE_TIMEOUT 200000 // microseconds
 #define VOLC_BUFFER_MAX_SIZE 128 * 1024
 
 #define VOLC_LOOP_INTERVAL 10000
@@ -430,7 +430,7 @@ static void volc_send_audio_data(struct volc_lws_state* state)
     frame_buffer = (char*)malloc(frame_size);
     if (state->ctx->is_finished) {
         memset(frame_buffer, 0, frame_size);
-        usleep(VOLC_SLIENCE_TIMEOUT);
+        usleep(VOLC_SILENCE_TIMEOUT);
     } else
         ai_ring_buffer_dequeue_arr(&state->buffer, frame_buffer, frame_size);
 
@@ -586,7 +586,7 @@ static int volc_callback_bigasr(struct lws* wsi, enum lws_callback_reasons reaso
             } else if (result.completed) {
                 state->ctx->cb(voice_event_complete, NULL, state->ctx->cookie);
             } else if (result.error_msg && result.code != 0) {
-                cb_result.error_code = voice_error_unkonwn;
+                cb_result.error_code = voice_error_unknown;
                 cb_result.result = NULL;
                 state->ctx->cb(voice_event_error, &cb_result, state->ctx->cookie);
             } else {

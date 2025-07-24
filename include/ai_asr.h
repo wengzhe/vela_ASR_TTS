@@ -48,11 +48,11 @@ typedef struct asr_init_params {
     const char* locate; // CN
     const char* rec_mode; // short long
     const char* language; // zh-CN
-    int slience_timeout; // 3000ms
+    int silence_timeout; // 3000ms
 } asr_init_params_t;
 
 typedef enum {
-    asr_event_unkonwn,
+    asr_event_unknown,
     asr_event_start,
     asr_event_cancel,
     asr_event_result,

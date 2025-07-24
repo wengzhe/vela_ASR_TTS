@@ -36,6 +36,6 @@ typedef struct tts_engine_plugin_s {
 } tts_engine_plugin_t;
 
 void* tts_plugin_init(tts_engine_plugin_t* plugin, const tts_engine_init_params_t* param);
-void tts_plugin_uinit(tts_engine_plugin_t* plugin, void* engine, int sync);
+void tts_plugin_uninit(tts_engine_plugin_t* plugin, void* engine, int sync);
 
 #endif // FRAMEWORKS_AI_PLUGIN_H_

@@ -475,7 +475,7 @@ static int conversation_message_close_handler(void* message_data)
     
     // 清理插件引擎
     if (ctx->plugin && ctx->engine) {
-        conversation_plugin_uinit(ctx->plugin, ctx->engine, 1);
+        conversation_plugin_uninit(ctx->plugin, ctx->engine, 1);
         ctx->engine = NULL;
     }
     
@@ -933,7 +933,7 @@ conversation_handle_t ai_conversation_create_engine_with_auth(const conversation
     // 设置引擎参数
     ctx->voice_param.loop = ctx->loop;
     ctx->voice_param.language = param->language;
-    ctx->voice_param.slience_timeout = param->timeout;
+    ctx->voice_param.silence_timeout = param->timeout;
     ctx->voice_param.app_id = auth->app_id;
     ctx->voice_param.app_key = auth->app_key;
     ctx->voice_param.cb = conversation_async_cb;

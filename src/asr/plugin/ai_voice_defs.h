@@ -24,7 +24,7 @@
 #include <uv_async_queue.h>
 
 typedef enum {
-    voice_event_unkonwn,
+    voice_event_unknown,
     voice_event_start,
     voice_event_cancel,
     voice_event_result,
@@ -35,7 +35,7 @@ typedef enum {
 
 typedef enum {
     voice_error_success = 0,
-    voice_error_unkonwn,
+    voice_error_unknown,
     voice_error_network,
     voice_error_auth,
     voice_error_listen_timeout,
@@ -67,7 +67,7 @@ typedef struct voice_init_params {
     const char* locate;
     const char* rec_mode;
     const char* language;
-    int slience_timeout;
+    int silence_timeout;
     const char* app_id;
     const char* app_key;
     ai_uvasyncq_cb_t cb;
