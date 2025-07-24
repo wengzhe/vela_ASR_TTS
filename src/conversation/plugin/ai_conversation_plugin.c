@@ -18,64 +18,44 @@
  *
  ****************************************************************************/
 
-/****************************************************************************
- * Included Files
- ****************************************************************************/
-
-#include <errno.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <uv.h>
 
-#include "ai_conversation_plugin.h"
 #include "ai_common.h"
-
-/****************************************************************************
- * Public Functions
- ****************************************************************************/
+#include "ai_conversation_plugin.h"
 
 void* conversation_plugin_init(conversation_engine_plugin_t* plugin, 
                               const conversation_engine_init_params_t* param)
 {
-    void* engine;
-    
-    if (!plugin || !param) {
-        AI_INFO("Invalid plugin or param");
+    int ret;
+    void* priv_ctx;
+
+    priv_ctx = zalloc(plugin->priv_size);
+    if (!priv_ctx) {
         return NULL;
     }
-    
-    AI_INFO("Initializing conversation plugin: %s", plugin->name);
-    
-    engine = calloc(1, plugin->priv_size);
-    if (!engine) {
-        AI_INFO("Failed to allocate memory for conversation engine");
-        return NULL;
+
+    if (plugin->init) {
+        ret = plugin->init(priv_ctx, param);
+        if (ret < 0) {
+            AI_ERR("AI plugin:%s init failed: %d", plugin->name, ret);
+            // free(priv_ctx);
+            // priv_ctx = NULL;
+            return NULL;
+        }
     }
-    
-    if (plugin->init && plugin->init(engine, param) < 0) {
-        AI_INFO("Failed to initialize conversation plugin: %s", plugin->name);
-        free(engine);
-        return NULL;
-    }
-    
-    AI_INFO("Conversation plugin initialized successfully: %s", plugin->name);
-    return engine;
+
+    return priv_ctx;
 }
 
-void conversation_plugin_uninit(conversation_engine_plugin_t* plugin, void* engine, int sync)
+void conversation_plugin_uinit(conversation_engine_plugin_t* plugin, void* engine, int sync)
 {
-    if (!plugin || !engine) {
-        return;
-    }
-    
-    AI_INFO("Uninitializing conversation plugin: %s", plugin->name);
-    
-    if (plugin->uninit) {
+    if (plugin->uninit && engine) {
+        AI_INFO("AI plugin:%s uninit", plugin->name);
         plugin->uninit(engine);
     }
-    
-    free(engine);
-    
-    AI_INFO("Conversation plugin uninitialized: %s", plugin->name);
-} 
+
+    if (sync) {
+        free(engine);
+        engine = NULL;
+    }
+}

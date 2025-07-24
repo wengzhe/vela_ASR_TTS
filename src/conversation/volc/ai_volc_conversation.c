@@ -23,16 +23,20 @@
  ****************************************************************************/
 
 #include <errno.h>
+#include <json_object.h>
+#include <json_tokener.h>
+#include <libwebsockets.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <uv.h>
-#include <libwebsockets.h>
-#include <json_object.h>
-#include <json_tokener.h>
+#include <uv_async_queue.h>
 
-#include "ai_conversation_plugin.h"
 #include "ai_common.h"
+#include "ai_conversation_plugin.h"
 #include "ai_ring_buffer.h"
 
 /****************************************************************************
@@ -132,8 +136,8 @@ static int volc_conversation_websocket_callback(struct lws* wsi, enum lws_callba
             engine->is_connecting = 0;
             engine->wsi = wsi;
             engine->state = VOLC_STATE_CONNECTED;
-            volc_conversation_send_event(engine, conversation_engine_event_connected, 
-                                       NULL, NULL, 0, conversation_engine_error_success);
+                    volc_conversation_send_event(engine, conversation_engine_event_start,
+                                     NULL, conversation_engine_error_success);
             break;
             
         case LWS_CALLBACK_CLIENT_RECEIVE:
@@ -177,7 +181,7 @@ static int volc_conversation_websocket_callback(struct lws* wsi, enum lws_callba
             engine->state = VOLC_STATE_ERROR;
             volc_conversation_send_event(engine, conversation_engine_event_error, 
                                        in ? (char*)in : "Connection error", 
-                                       NULL, 0, conversation_engine_error_connect_failed);
+                                       conversation_engine_error_network);
             break;
             
         case LWS_CALLBACK_CLIENT_CLOSED:
@@ -186,8 +190,8 @@ static int volc_conversation_websocket_callback(struct lws* wsi, enum lws_callba
             engine->is_connecting = 0;
             engine->wsi = NULL;
             engine->state = VOLC_STATE_DISCONNECTED;
-            volc_conversation_send_event(engine, conversation_engine_event_disconnected, 
-                                       NULL, NULL, 0, conversation_engine_error_success);
+                    volc_conversation_send_event(engine, conversation_engine_event_stop,
+                                     NULL, conversation_engine_error_success);
             break;
             
         case LWS_CALLBACK_WSI_DESTROY:
@@ -257,20 +261,20 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
         }
         
         engine->state = VOLC_STATE_SESSION_CREATED;
-        volc_conversation_send_event(engine, conversation_engine_event_session_created, 
-                                   engine->session_id, NULL, 0, conversation_engine_error_success);
+        volc_conversation_send_event(engine, conversation_engine_event_start, 
+                                   engine->session_id, conversation_engine_error_success);
         
     } else if (strcmp(type, "input_audio_buffer.committed") == 0) {
         engine->state = VOLC_STATE_PROCESSING;
-        volc_conversation_send_event(engine, conversation_engine_event_processing, 
-                                   NULL, NULL, 0, conversation_engine_error_success);
+                volc_conversation_send_event(engine, conversation_engine_event_start,
+                                     NULL, conversation_engine_error_success);
         
     } else if (strcmp(type, "conversation.item.input_audio_transcription.completed") == 0) {
         json_object* transcript_obj;
         if (json_object_object_get_ex(json, "transcript", &transcript_obj)) {
             const char* transcript = json_object_get_string(transcript_obj);
-            volc_conversation_send_event(engine, conversation_engine_event_user_transcript, 
-                                       transcript, NULL, 0, conversation_engine_error_success);
+            volc_conversation_send_event(engine, conversation_engine_event_result, 
+                                       transcript, conversation_engine_error_success);
         }
         
     } else if (strcmp(type, "response.created") == 0) {
@@ -287,8 +291,8 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
         }
         
         engine->state = VOLC_STATE_SPEAKING;
-        volc_conversation_send_event(engine, conversation_engine_event_speaking, 
-                                   NULL, NULL, 0, conversation_engine_error_success);
+        volc_conversation_send_event(engine, conversation_engine_event_start, 
+                                   NULL, conversation_engine_error_success);
         
     } else if (strcmp(type, "response.audio.delta") == 0) {
         json_object* delta_obj;
@@ -299,8 +303,8 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
             unsigned char* audio_data = base64_decode(audio_b64, strlen(audio_b64), &audio_len);
             
             if (audio_data) {
-                volc_conversation_send_event(engine, conversation_engine_event_response_audio, 
-                                           NULL, audio_data, audio_len, conversation_engine_error_success);
+                volc_conversation_send_event(engine, conversation_engine_event_result, 
+                                           (char*)audio_data, conversation_engine_error_success);
                 free(audio_data);
             }
         }
@@ -309,14 +313,14 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
         json_object* delta_obj;
         if (json_object_object_get_ex(json, "delta", &delta_obj)) {
             const char* text_delta = json_object_get_string(delta_obj);
-            volc_conversation_send_event(engine, conversation_engine_event_response_text, 
-                                       text_delta, NULL, 0, conversation_engine_error_success);
+            volc_conversation_send_event(engine, conversation_engine_event_result, 
+                                       text_delta, conversation_engine_error_success);
         }
         
     } else if (strcmp(type, "response.done") == 0) {
         engine->state = VOLC_STATE_SESSION_CREATED;
         volc_conversation_send_event(engine, conversation_engine_event_complete, 
-                                   NULL, NULL, 0, conversation_engine_error_success);
+                                   NULL, conversation_engine_error_success);
         
         if (engine->current_response_id) {
             free(engine->current_response_id);
@@ -335,7 +339,7 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
         
         engine->state = VOLC_STATE_ERROR;
         volc_conversation_send_event(engine, conversation_engine_event_error, 
-                                   error_message, NULL, 0, conversation_engine_error_server);
+                                   error_message, conversation_engine_error_network);
     }
     
     json_object_put(json);
@@ -348,24 +352,20 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
 
 static void volc_conversation_send_event(volc_conversation_engine_t* engine, 
                                         conversation_engine_event_t event,
-                                        const char* text,
-                                        const void* audio_data,
-                                        int audio_length,
+                                        const char* result,
                                         conversation_engine_error_t error_code)
 {
     if (!engine || !engine->event_callback) {
         return;
     }
     
-    conversation_engine_result_t result = {
-        .text = text,
-        .audio_data = audio_data,
-        .audio_length = audio_length,
-        .duration = 0,
+    conversation_engine_result_t engine_result = {
+        .result = result,
+        .len = result ? strlen(result) : 0,
         .error_code = error_code
     };
     
-    engine->event_callback(event, &result, engine->event_cookie);
+    engine->event_callback(event, &engine_result, engine->event_cookie);
 }
 
 // Base64编码实现（简化版）
@@ -611,8 +611,8 @@ static int volc_conversation_write_audio(void* engine, const char* data, int len
     
     if (ret == 0 && volc_engine->state == VOLC_STATE_SESSION_CREATED) {
         volc_engine->state = VOLC_STATE_LISTENING;
-        volc_conversation_send_event(volc_engine, conversation_engine_event_listening, 
-                                   NULL, NULL, 0, conversation_engine_error_success);
+        volc_conversation_send_event(volc_engine, conversation_engine_event_start, 
+                                   NULL, conversation_engine_error_success);
     }
     
     return ret;

@@ -39,6 +39,6 @@ typedef struct conversation_engine_plugin_s {
 
 void* conversation_plugin_init(conversation_engine_plugin_t* plugin, 
                               const conversation_engine_init_params_t* param);
-void conversation_plugin_uninit(conversation_engine_plugin_t* plugin, void* engine, int sync);
+void conversation_plugin_uinit(conversation_engine_plugin_t* plugin, void* engine, int sync);
 
 #endif // FRAMEWORKS_AI_CONVERSATION_PLUGIN_H_ 

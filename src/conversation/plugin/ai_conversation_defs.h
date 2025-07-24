@@ -25,18 +25,12 @@
 #include <uv_async_queue.h>
 
 typedef enum {
-    conversation_engine_event_unknown,
-    conversation_engine_event_connected,
-    conversation_engine_event_session_created,
-    conversation_engine_event_listening,
-    conversation_engine_event_processing,
-    conversation_engine_event_speaking,
-    conversation_engine_event_user_transcript,
-    conversation_engine_event_response_audio,
-    conversation_engine_event_response_text,
+    conversation_engine_event_unkonwn,
+    conversation_engine_event_start,
+    conversation_engine_event_stop,
     conversation_engine_event_complete,
+    conversation_engine_event_result,
     conversation_engine_event_error,
-    conversation_engine_event_disconnected,
 } conversation_engine_event_t;
 
 typedef enum {
@@ -51,10 +45,8 @@ typedef enum {
 } conversation_engine_error_t;
 
 typedef struct conversation_engine_result {
-    const char* text;
-    const void* audio_data;
-    int audio_length;
-    int duration;
+    const char* result;
+    int len;
     conversation_engine_error_t error_code;
 } conversation_engine_result_t;
 
@@ -74,10 +66,8 @@ typedef void (*conversation_engine_uvasyncq_cb_t)(uv_async_queue_t* asyncq, void
 
 typedef struct conversation_engine_init_params {
     uv_loop_t* loop;
-    const char* language; // zh-CN
-    const char* voice; // zh_xiaoyun_bigtts
-    const char* instructions; // system prompt
-    int timeout; // 30000ms
+    const char* language;
+    int slience_timeout;
     const char* app_id;
     const char* app_key;
     conversation_engine_uvasyncq_cb_t cb;
