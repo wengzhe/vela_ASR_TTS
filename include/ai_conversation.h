@@ -124,17 +124,6 @@ int ai_conversation_start(conversation_handle_t handle,
                          const conversation_audio_info_t* audio_info);
 
 /**
- * @brief Send audio data to conversation engine.
- * @param[in] handle conversation handle
- * @param[in] data audio data
- * @param[in] length audio data length
- * @return 0 on success, otherwise failed
- */
-int ai_conversation_send_audio(conversation_handle_t handle, 
-                              const void* data, 
-                              int length);
-
-/**
  * @brief Finish current audio input.
  * @param[in] handle conversation handle
  * @return 0 on success, otherwise failed

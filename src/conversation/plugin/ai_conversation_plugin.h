@@ -31,7 +31,7 @@ typedef struct conversation_engine_plugin_s {
     int (*uninit)(void* engine);
     int (*event_cb)(void* engine, conversation_engine_callback_t callback, void* cookie);
     int (*start)(void* engine, const conversation_engine_audio_info_t* audio_info);
-    int (*send_audio)(void* engine, const void* data, int length);
+    int (*write_audio)(void* engine, const char* data, int len);
     int (*finish)(void* engine);
     int (*cancel)(void* engine);
     conversation_engine_env_params_t* (*get_env)(void* engine);

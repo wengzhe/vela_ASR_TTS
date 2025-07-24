@@ -585,16 +585,16 @@ static int volc_conversation_start(void* engine, const conversation_engine_audio
     return 0;
 }
 
-static int volc_conversation_send_audio(void* engine, const void* data, int length)
+static int volc_conversation_write_audio(void* engine, const char* data, int len)
 {
     volc_conversation_engine_t* volc_engine = (volc_conversation_engine_t*)engine;
     
-    if (!volc_engine || !data || length <= 0 || !volc_engine->is_connected) {
+    if (!volc_engine || !data || len <= 0 || !volc_engine->is_connected) {
         return -EINVAL;
     }
     
     // Base64编码音频数据
-    char* audio_b64 = base64_encode((const unsigned char*)data, length);
+    char* audio_b64 = base64_encode((const unsigned char*)data, len);
     if (!audio_b64) {
         return -ENOMEM;
     }
@@ -687,7 +687,7 @@ conversation_engine_plugin_t volc_conversation_engine_plugin = {
     .uninit = volc_conversation_uninit,
     .event_cb = volc_conversation_event_cb,
     .start = volc_conversation_start,
-    .send_audio = volc_conversation_send_audio,
+    .write_audio = volc_conversation_write_audio,
     .finish = volc_conversation_finish,
     .cancel = volc_conversation_cancel,
     .get_env = volc_conversation_get_env,
