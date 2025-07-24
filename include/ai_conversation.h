@@ -103,8 +103,6 @@ typedef void (*conversation_callback_t)(conversation_event_t event,
  */
 conversation_handle_t ai_conversation_create_engine(const conversation_init_params_t* param);
 
-
-
 /**
  * @brief Set conversation engine listener.
  * @param[in] handle conversation handle

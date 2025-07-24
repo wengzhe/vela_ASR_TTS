@@ -108,8 +108,6 @@ typedef struct message_data_start_s {
     conversation_audio_info_t audio_info;
 } message_data_start_t;
 
-
-
 typedef struct message_data_finish_s {
     conversation_context_t* ctx;
 } message_data_finish_t;
@@ -282,7 +280,7 @@ static void conversation_engine_event_cb(conversation_engine_event_t event,
         // 映射错误码
         switch (result->error_code) {
             case conversation_engine_error_success:
-                cb_data->result.error_code = conversation_error_unknown;
+                cb_data->result.error_code = conversation_error_unknown; // 成功时不应有错误码
                 break;
             case conversation_engine_error_network:
                 cb_data->result.error_code = conversation_error_network;
@@ -290,14 +288,17 @@ static void conversation_engine_event_cb(conversation_engine_event_t event,
             case conversation_engine_error_auth:
                 cb_data->result.error_code = conversation_error_auth;
                 break;
-            case conversation_engine_error_listen_timeout:
+            case conversation_engine_error_timeout:
                 cb_data->result.error_code = conversation_error_timeout;
                 break;
-            case conversation_engine_error_asr_timeout:
-                cb_data->result.error_code = conversation_error_timeout;
+            case conversation_engine_error_audio_format:
+                cb_data->result.error_code = conversation_error_audio_format;
                 break;
-            case conversation_engine_error_tts_timeout:
-                cb_data->result.error_code = conversation_error_timeout;
+            case conversation_engine_error_server:
+                cb_data->result.error_code = conversation_error_failed;
+                break;
+            case conversation_engine_error_connect_failed:
+                cb_data->result.error_code = conversation_error_network;
                 break;
             default:
                 cb_data->result.error_code = conversation_error_unknown;
@@ -531,7 +532,7 @@ static int conversation_message_cb_handler(void* message_data)
         free((void*)data->result.audio_data);
     }
     
-        return 0;
+    return 0;
 }
 
 static void ai_conversation_focus_callback(int suggestion, void* cookie)
@@ -957,7 +958,6 @@ conversation_handle_t ai_conversation_create_engine(const conversation_init_para
     AI_INFO("Conversation engine created successfully");
     return (conversation_handle_t)ctx;
 }
-
 
 int ai_conversation_set_listener(conversation_handle_t handle, 
                                 conversation_callback_t callback, 
