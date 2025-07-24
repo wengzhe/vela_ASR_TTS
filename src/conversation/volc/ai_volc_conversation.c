@@ -43,19 +43,16 @@
  * Private Types
  ****************************************************************************/
 
-// VolcEngine Realtime API Configuration
-#define VOLC_CONVERSATION_APP_ID "default_app_id"
-#define VOLC_CONVERSATION_ACCESS_TOKEN "default_access_token"
-#define VOLC_CONVERSATION_URL "ai-gateway.vei.volces.com"
-#define VOLC_CONVERSATION_HOST "ai-gateway.vei.volces.com"
-#define VOLC_CONVERSATION_PATH "/v1/realtime"
-#define VOLC_CONVERSATION_PORT 443
+#define VOLC_APP_ID "3306859263"
+#define VOLC_ACCESS_TOKEN "LyWxL1O5wV4UMgqhSgjU6QnEcV_HJIaD"
+#define VOLC_URL "wss://ai-gateway.vei.volces.com/v1/realtime"
+#define VOLC_HOST "ai-gateway.vei.volces.com"
+#define VOLC_PATH "/v1/realtime"
 #define VOLC_CLIENT_PROTOCOL_NAME ""
 
-// Buffer and Timing Configuration  
-#define VOLC_BUFFER_SIZE 64 * 1024
+#define VOLC_HEADER_LEN 12
 #define VOLC_TIMEOUT 1000 // milliseconds
-#define VOLC_LOOP_INTERVAL 10000
+#define VOLC_BUFFER_MAX_SIZE 128 * 1024
 
 // WebSocket Message Types (Realtime API)
 #define VOLC_REALTIME_SESSION_CREATE "session.create"
@@ -164,7 +161,7 @@ static struct lws_protocols volc_conversation_protocols[] = {
         .name = "volc-conversation",
         .callback = volc_conversation_websocket_callback,
         .per_session_data_size = 0,
-        .rx_buffer_size = VOLC_BUFFER_SIZE,
+        .rx_buffer_size = VOLC_BUFFER_MAX_SIZE,
     },
     { NULL, NULL, 0, 0 }
 };
@@ -180,7 +177,7 @@ static int volc_conversation_websocket_callback(struct lws* wsi, enum lws_callba
     
     switch (reason) {
         case LWS_CALLBACK_CLIENT_ESTABLISHED:
-            AI_INFO("WebSocket connected to VolcEngine");
+            AI_INFO("conversation_volc Connected to server: %s\n", VOLC_URL);
             engine->is_connected = 1;
             engine->is_connecting = 0;
             engine->wsi = wsi;
@@ -204,8 +201,8 @@ static int volc_conversation_websocket_callback(struct lws* wsi, enum lws_callba
         case LWS_CALLBACK_CLIENT_WRITEABLE:
             if (ai_ring_buffer_num_items(&engine->send_buffer) > 0) {
                 size_t available = ai_ring_buffer_num_items(&engine->send_buffer);
-                size_t to_send = available > VOLC_BUFFER_SIZE - LWS_PRE ? 
-                                VOLC_BUFFER_SIZE - LWS_PRE : available;
+                        size_t to_send = available > VOLC_BUFFER_MAX_SIZE - LWS_PRE ?
+                        VOLC_BUFFER_MAX_SIZE - LWS_PRE : available;
                 
                 unsigned char* buffer = malloc(to_send + LWS_PRE);
                 ai_ring_buffer_dequeue_arr(&engine->send_buffer, (char*)(buffer + LWS_PRE), to_send);
@@ -494,15 +491,15 @@ static int volc_conversation_init(void* engine, const conversation_engine_init_p
     memcpy(&volc_engine->config, param, sizeof(conversation_engine_init_params_t));
     
     // 设置认证信息
-    volc_engine->app_id = param->app_id ? strdup(param->app_id) : strdup(VOLC_CONVERSATION_APP_ID);
-    volc_engine->app_key = param->app_key ? strdup(param->app_key) : strdup(VOLC_CONVERSATION_ACCESS_TOKEN);
+    volc_engine->app_id = param->app_id ? strdup(param->app_id) : strdup(VOLC_APP_ID);
+    volc_engine->app_key = param->app_key ? strdup(param->app_key) : strdup(VOLC_ACCESS_TOKEN);
     
     // 初始化发送缓冲区
-    volc_engine->send_buffer_data = malloc(VOLC_BUFFER_SIZE);
+    volc_engine->send_buffer_data = malloc(VOLC_BUFFER_MAX_SIZE);
     if (!volc_engine->send_buffer_data) {
         return -ENOMEM;
     }
-    ai_ring_buffer_init(&volc_engine->send_buffer, volc_engine->send_buffer_data, VOLC_BUFFER_SIZE);
+    ai_ring_buffer_init(&volc_engine->send_buffer, volc_engine->send_buffer_data, VOLC_BUFFER_MAX_SIZE);
     
     // 设置环境参数
     volc_engine->env.loop = param->loop;
@@ -608,11 +605,11 @@ static int volc_conversation_start(void* engine, const conversation_engine_audio
     memset(&ccinfo, 0, sizeof(ccinfo));
     
     ccinfo.context = volc_engine->lws_context;
-    ccinfo.address = VOLC_CONVERSATION_URL;
-    ccinfo.port = VOLC_CONVERSATION_PORT;
-    ccinfo.path = VOLC_CONVERSATION_PATH "?model=AG-voice-chat-agent";
-    ccinfo.host = VOLC_CONVERSATION_URL;
-    ccinfo.origin = VOLC_CONVERSATION_URL;
+    ccinfo.address = VOLC_HOST;
+    ccinfo.port = 443;
+    ccinfo.path = VOLC_PATH "?model=AG-voice-chat-agent";
+    ccinfo.host = VOLC_HOST;
+    ccinfo.origin = VOLC_HOST;
     ccinfo.protocol = volc_conversation_protocols[0].name;
     ccinfo.ssl_connection = LCCSCF_USE_SSL | LCCSCF_ALLOW_SELFSIGNED | LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK;
     
@@ -623,7 +620,8 @@ static int volc_conversation_start(void* engine, const conversation_engine_audio
     };
     
     char auth_header[256];
-    snprintf(auth_header, sizeof(auth_header), "Bearer %s", volc_engine->config.app_key);
+    const char* app_key = volc_engine->app_key ? volc_engine->app_key : VOLC_ACCESS_TOKEN;
+    snprintf(auth_header, sizeof(auth_header), "Bearer %s", app_key);
     headers[1] = auth_header;
     
     ccinfo.extra_headers = headers;
