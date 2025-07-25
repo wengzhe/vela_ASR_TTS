@@ -141,8 +141,6 @@ static int64_t aitool_gettime_relative(void)
     return (int64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
 }
 
-// asr_result_t global_asr_result = {0};
-// pthread_mutex_t asr_result_mutex = PTHREAD_MUTEX_INITIALIZER; // 定义互斥锁
 static void aitool_asr_callback(asr_event_t event, const asr_result_t* result, void* cookie)
 {
     aitool_t* aitool = (aitool_t*)cookie;
@@ -158,16 +156,17 @@ static void aitool_asr_callback(asr_event_t event, const asr_result_t* result, v
             end = aitool_gettime_relative();
             aitool->asr_first_work_cost = end - aitool->asr_start_time;
             pthread_mutex_lock(&asr_result_mutex);
-            // 更新全局变量
-            if (global_asr_result.result) {
-                free(global_asr_result.result);
-            }
-            global_asr_result.result = strdup(result->result);
-            global_asr_result.duration = result->duration;
-            global_asr_result.error_code = result->error_code;
-            pthread_mutex_unlock(&asr_result_mutex);
             printf("Asr result fisrt work cost: %lld len:%d\n", aitool->asr_first_work_cost, strlen(result->result));
         }
+        // 更新全局变量
+        if (global_asr_result.result) {
+            free(global_asr_result.result);
+        }
+        global_asr_result.result = strdup(result->result);
+        global_asr_result.duration = result->duration;
+        global_asr_result.error_code = result->error_code;
+        pthread_mutex_unlock(&asr_result_mutex);
+        printf("Asr result: %s\n", global_asr_result.result);
         printf("Asr result: %s\n", result->result);
     } else if (event == asr_event_complete) {
         printf("Asr complete\n");
@@ -206,6 +205,10 @@ static void aitool_tts_callback(tts_event_t event, const tts_result_t* result, v
 
     printf("Tts aitool:%p\n", aitool);
 }
+
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
 
 CMD0(create_asr_engine)
 {
@@ -434,10 +437,6 @@ static int aitool_cmd_help(const aitool_cmd_t cmds[])
 
     return 0;
 }
-
-/****************************************************************************
- * Public Functions
- ****************************************************************************/
 
 static const aitool_cmd_t g_aitool_cmds[] = {
     { "acreate",

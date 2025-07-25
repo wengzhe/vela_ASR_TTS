@@ -22,6 +22,7 @@ include $(APPDIR)/Make.defs
 
 MODULE  = y
 CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/frameworks/multimedia/ai/utils
+CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/frameworks/multimedia/ai/fonts
 CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/frameworks/multimedia/ai/src/asr/plugin
 CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/frameworks/multimedia/ai/src/tts/plugin
 CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/vendor/xiaomi/miwear/apps/frameworks/include/media_session
@@ -56,6 +57,7 @@ CSRCS += $(wildcard src/asr/volc/*.c)
 CSRCS += $(wildcard src/asr/xiaoai/*.c)
 CSRCS += $(wildcard src/tts/volc/*.c)
 CSRCS += $(wildcard utils/*.c)
+CSRCS += $(wildcard fonts/*.c)
 endif
 
 # ASRCS := $(wildcard $(ASRCS))
