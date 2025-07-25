@@ -1,6 +1,7 @@
 
 #include <ai_asr.h>
 #include <ai_tts.h>
+#include <ai_conversation.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>

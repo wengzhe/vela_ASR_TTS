@@ -46,6 +46,9 @@ if(CONFIG_AI_MODULE)
       ${CMAKE_CURRENT_SOURCE_DIR}/src/tts/ai_tts.c
       ${CMAKE_CURRENT_SOURCE_DIR}/src/tts/plugin/ai_tts_plugin.c
       ${CMAKE_CURRENT_SOURCE_DIR}/src/tts/volc/ai_volc_tts.c
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/conversation/ai_conversion.c
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/ttconversations/plugin/ai_conversation_plugin.c
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/ttconversations/volc/ai_volc_conversation.c
   )
   message("cmake src list:${CSRCS}")
 

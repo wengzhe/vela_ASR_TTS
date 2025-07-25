@@ -1,5 +1,5 @@
 /****************************************************************************
- * frameworks/ai/src/tts_plugin/ai_tts_plugin.h
+ * frameworks/ai/src/conversation/plugin/ai_conversation_plugin.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -21,9 +21,10 @@
 #include <stdlib.h>
 
 #include "ai_common.h"
-#include "ai_tts_plugin.h"
+#include "ai_conversation_plugin.h"
 
-void* tts_plugin_init(tts_engine_plugin_t* plugin, const tts_engine_init_params_t* param)
+void* conversation_plugin_init(conversation_engine_plugin_t* plugin, 
+                              const conversation_engine_init_params_t* param)
 {
     int ret;
     void* priv_ctx;
@@ -46,7 +47,7 @@ void* tts_plugin_init(tts_engine_plugin_t* plugin, const tts_engine_init_params_
     return priv_ctx;
 }
 
-void tts_plugin_uninit(tts_engine_plugin_t* plugin, void* engine, int sync)
+void conversation_plugin_uninit(conversation_engine_plugin_t* plugin, void* engine, int sync)
 {
     if (plugin->uninit && engine) {
         AI_INFO("AI plugin:%s uninit", plugin->name);

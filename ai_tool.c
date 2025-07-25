@@ -43,6 +43,7 @@ pthread_mutex_t asr_result_mutex = PTHREAD_MUTEX_INITIALIZER; // 定义互斥锁
 #define AITOOL_MAX_ARGC 16
 #define AITOOL_ASR 1
 #define AITOOL_TTS 2
+#define AITOOL_CONVERSATION 3
 
 #define GET_ARG_FUNC(out_type, arg)                  \
     static out_type get_##out_type##_arg(char* arg); \
@@ -206,6 +207,25 @@ static void aitool_tts_callback(tts_event_t event, const tts_result_t* result, v
     printf("Tts aitool:%p\n", aitool);
 }
 
+static void aitool_conv_callback(conversation_event_t event, const conversation_result_t* result, void* cookie)
+{
+    aitool_t* aitool = (aitool_t*)cookie;
+
+    if (event == conversation_event_response_audio) {
+        printf("Conversation response audio: %d\n", result->len);
+    } else if (event == conversation_event_response_text) {
+        printf("Conversation response text: %s\n", result->result);
+    } else if (event == conversation_event_complete) {
+        printf("Conversation complete\n");
+    } else if (event == conversation_event_error) {
+        printf("Conversation error: %d\n", result->error_code);
+    } else if (event == conversation_event_listening) {
+        printf("Conversation listening\n");
+    } else {
+        printf("Unknown event: %d\n", event);
+    }
+}
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -218,7 +238,7 @@ CMD0(create_asr_engine)
     for (i = 0; i < AITOOL_MAX_CHAIN; i++) {
         if (!aitool->chain[i].handle) {
             param.loop = &aitool->loop;
-            param.slience_timeout = 3000;
+            param.silence_timeout = 3000;
             aitool->chain[i].handle = ai_asr_create_engine(&param);
             aitool->chain[i].id = i;
             aitool->chain[i].handle_type = AITOOL_ASR;
@@ -264,6 +284,33 @@ CMD0(create_tts_engine)
     return 0;
 }
 
+CMD0(create_conv_engine)
+{
+    conversation_init_params_t param;
+    int i;
+
+    for (i = 0; i < AITOOL_MAX_CHAIN; i++) {
+        if (!aitool->chain[i].handle) {
+            param.loop = &aitool->loop;
+            param.engine_type = conversation_engine_type_volc;
+            aitool->chain[i].handle = ai_conversation_create_engine(&param);
+            aitool->chain[i].id = i;
+            aitool->chain[i].handle_type = AITOOL_CONVERSATION;
+            break;
+        }
+    }
+
+    if (i >= AITOOL_MAX_CHAIN || !aitool->chain[i].handle) {
+        printf("Create engine failed\n");
+        return -1;
+    }
+
+    ai_conversation_set_listener(aitool->chain[i].handle, aitool_conv_callback, aitool);
+    printf("Create conversation engine ID:%d\n", i);
+
+    return 0;
+}
+
 CMD1(start, int, id)
 {
     asr_handle_t handle;
@@ -280,8 +327,14 @@ CMD1(start, int, id)
 
     printf("Start ID before:%d\n", id);
 
-    aitool->asr_start_time = aitool_gettime_relative();
-    ret = ai_asr_start(handle, NULL);
+    if (aitool->chain[id].handle_type == AITOOL_ASR) {
+        aitool->asr_start_time = aitool_gettime_relative();
+        ret = ai_asr_start(handle, NULL);
+    } else if (aitool->chain[id].handle_type == AITOOL_CONVERSATION) {
+        ret = ai_conversation_start(handle, NULL);
+    } else {
+        printf("Unknown hanle type!");
+    }
 
     printf("Start ID:%d\n", id);
 
@@ -325,6 +378,8 @@ CMD1(finish, int, id)
 
     if (aitool->chain[id].handle_type == AITOOL_ASR)
         ret = ai_asr_finish(handle);
+    else if (aitool->chain[id].handle_type == AITOOL_CONVERSATION)
+        ret = ai_conversation_finish(handle);
     else if (aitool->chain[id].handle_type == AITOOL_TTS)
         ret = ai_tts_stop(handle);
     else
@@ -350,7 +405,12 @@ CMD1(cancel, int, id)
     if (!handle)
         return -1;
 
-    ret = ai_asr_cancel(handle);
+    if (aitool->chain[id].handle_type == AITOOL_ASR)
+        ret = ai_asr_cancel(handle);
+    else if (aitool->chain[id].handle_type == AITOOL_CONVERSATION)
+        ret = ai_conversation_cancel(handle);
+    else
+        printf("Unknown hanle type!");
 
     printf("Cancel ID:%d\n", id);
 
@@ -373,6 +433,8 @@ CMD1(is_busy, int, id)
         ret = ai_asr_is_busy(handle);
     else if (aitool->chain[id].handle_type == AITOOL_TTS)
         ret = ai_tts_is_busy(handle);
+    else if (aitool->chain[id].handle_type == AITOOL_CONVERSATION)
+        ret = ai_conversation_is_busy(handle);
     else
         printf("Unknown hanle type!");
 
@@ -397,6 +459,8 @@ CMD1(close, int, id)
         ret = ai_asr_close(handle);
     } else if (aitool->chain[id].handle_type == AITOOL_TTS)
         ret = ai_tts_close(handle);
+    else if (aitool->chain[id].handle_type == AITOOL_CONVERSATION)
+        ret = ai_conversation_close(handle);
     else
         printf("Unknown hanle type!");
 
@@ -445,6 +509,9 @@ static const aitool_cmd_t g_aitool_cmds[] = {
     { "tcreate",
         aitool_cmd_create_tts_engine,
         "Create tts engine (create [UNUSED])" },
+    { "ccreate",
+        aitool_cmd_create_conv_engine,
+        "Create conversation engine (create [UNUSED])" },
     { "start",
         aitool_cmd_start,
         "Start engine (start ID)" },

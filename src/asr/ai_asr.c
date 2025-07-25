@@ -35,9 +35,9 @@
 #include "ai_common.h"
 #include "ai_voice_plugin.h"
 
-#define ASR_DEFAULT_SLIENCE_TIMEOUT 3000
-#define ASR_MIN_SLIENCE_TIMEOUT 300
-#define ASR_MAX_SLIENCE_TIMEOUT 15000
+#define ASR_DEFAULT_SILENCE_TIMEOUT 3000
+#define ASR_MIN_SILENCE_TIMEOUT 300
+#define ASR_MAX_SILENCE_TIMEOUT 15000
 
 /****************************************************************************
  * Private Types
@@ -243,7 +243,7 @@ static void ai_asr_destroy_engine(asr_context_t* ctx)
     }
 
     if (ctx->engine) {
-        voice_plugin_uinit(ctx->plugin, ctx->engine, 0);
+        voice_plugin_uninit(ctx->plugin, ctx->engine, 0);
         ctx->engine = NULL;
     }
 
@@ -430,8 +430,8 @@ static void ai_asr_voice_callback(voice_event_t event, const voice_result_t* res
         AI_INFO("ai_asr_voice_callback:%s", result->result);
 
         if (asr_result->result != NULL) {
-            if (strcmp(ctx->last_result, asr_result->result) == 0 && ctx->last_result_time != 0 && (ai_asr_gettime_relative() - ctx->last_result_time) > ctx->voice_param.slience_timeout * 1000) {
-                AI_INFO("ai_asr_voice_callback timeout: %s %d", asr_result->result, ctx->voice_param.slience_timeout);
+                    if (strcmp(ctx->last_result, asr_result->result) == 0 && ctx->last_result_time != 0 && (ai_asr_gettime_relative() - ctx->last_result_time) > ctx->voice_param.silence_timeout * 1000) {
+            AI_INFO("ai_asr_voice_callback timeout: %s %d", asr_result->result, ctx->voice_param.silence_timeout);
                 free(asr_result->result);
                 free(asr_result);
                 ai_asr_voice_callback(voice_event_complete, NULL, ctx);
@@ -479,14 +479,14 @@ static int ai_asr_map_params(asr_context_t* ctx, const asr_init_params_t* in_par
     out_param->locate = in_param->locate ?: "CN";
     out_param->rec_mode = in_param->rec_mode ?: "short";
     out_param->language = in_param->language ?: "zh-CN";
-    if (in_param->slience_timeout <= ASR_MAX_SLIENCE_TIMEOUT && in_param->slience_timeout >= ASR_MIN_SLIENCE_TIMEOUT)
-        out_param->slience_timeout = in_param->slience_timeout;
-    else if (in_param->slience_timeout > ASR_MAX_SLIENCE_TIMEOUT)
-        out_param->slience_timeout = ASR_MAX_SLIENCE_TIMEOUT;
-    else if (in_param->slience_timeout < ASR_MIN_SLIENCE_TIMEOUT && in_param->slience_timeout != 0)
-        out_param->slience_timeout = ASR_MIN_SLIENCE_TIMEOUT;
+    if (in_param->silence_timeout <= ASR_MAX_SILENCE_TIMEOUT && in_param->silence_timeout >= ASR_MIN_SILENCE_TIMEOUT)
+        out_param->silence_timeout = in_param->silence_timeout;
+    else if (in_param->silence_timeout > ASR_MAX_SILENCE_TIMEOUT)
+        out_param->silence_timeout = ASR_MAX_SILENCE_TIMEOUT;
+    else if (in_param->silence_timeout < ASR_MIN_SILENCE_TIMEOUT && in_param->silence_timeout != 0)
+        out_param->silence_timeout = ASR_MIN_SILENCE_TIMEOUT;
     else
-        out_param->slience_timeout = ASR_DEFAULT_SLIENCE_TIMEOUT;
+        out_param->silence_timeout = ASR_DEFAULT_SILENCE_TIMEOUT;
     out_param->cb = ai_asr_async_cb;
     out_param->opaque = ctx;
     if (auth->engine_type == asr_engine_type_volc) {
@@ -732,7 +732,7 @@ asr_handle_t ai_asr_create_engine_l(const asr_init_params_t* param, const ai_aut
     AI_INFO("ai_asr_create_engine:%p", ctx->loop);
 
     if (ctx->loop == NULL) {
-        voice_plugin_uinit(plugin, ctx->engine, 1);
+        voice_plugin_uninit(plugin, ctx->engine, 1);
         free(ctx);
         return NULL;
     }

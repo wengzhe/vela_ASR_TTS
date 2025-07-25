@@ -43,14 +43,14 @@ typedef struct tts_init_params {
     int version;
     uv_loop_t* loop;
     const char* language; // zh-CN
-    int slience_timeout; // 2000ms
+    int silence_timeout; // 2000ms
     const char* app_id;
     const char* app_key;
     tts_engine_type engine_type;
 } tts_init_params_t;
 
 typedef enum {
-    tts_event_unkonwn,
+    tts_event_unknown,
     tts_event_start,
     tts_event_stop,
     tts_event_complete,

@@ -1,5 +1,5 @@
 /****************************************************************************
- * frameworks/ai/src/tts_plugin/ai_tts_plugin.h
+ * frameworks/ai/src/conversation/plugin/ai_conversation_plugin.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,24 +18,27 @@
  *
  ****************************************************************************/
 
-#ifndef FRAMEWORKS_AI_PLUGIN_H_
-#define FRAMEWORKS_AI_PLUGIN_H_
+#ifndef FRAMEWORKS_AI_CONVERSATION_PLUGIN_H_
+#define FRAMEWORKS_AI_CONVERSATION_PLUGIN_H_
+
 #include <uv.h>
+#include "ai_conversation_defs.h"
 
-#include "ai_tts_defs.h"
-
-typedef struct tts_engine_plugin_s {
+typedef struct conversation_engine_plugin_s {
     const char* name;
     int priv_size;
-    int (*init)(void* engine, const tts_engine_init_params_t* param);
+    int (*init)(void* engine, const conversation_engine_init_params_t* param);
     int (*uninit)(void* engine);
-    int (*event_cb)(void* engine, tts_engine_callback_t callback, void* cookie);
-    int (*speak)(void* engine, const char* text, const tts_engine_audio_info_t* audio_info);
-    int (*stop)(void* engine);
-    tts_engine_env_params_t* (*get_env)(void* engine);
-} tts_engine_plugin_t;
+    int (*event_cb)(void* engine, conversation_engine_callback_t callback, void* cookie);
+    int (*start)(void* engine, const conversation_engine_audio_info_t* audio_info);
+    int (*write_audio)(void* engine, const char* data, int len);
+    int (*finish)(void* engine);
+    int (*cancel)(void* engine);
+    conversation_engine_env_params_t* (*get_env)(void* engine);
+} conversation_engine_plugin_t;
 
-void* tts_plugin_init(tts_engine_plugin_t* plugin, const tts_engine_init_params_t* param);
-void tts_plugin_uninit(tts_engine_plugin_t* plugin, void* engine, int sync);
+void* conversation_plugin_init(conversation_engine_plugin_t* plugin, 
+                              const conversation_engine_init_params_t* param);
+void conversation_plugin_uninit(conversation_engine_plugin_t* plugin, void* engine, int sync);
 
-#endif // FRAMEWORKS_AI_PLUGIN_H_
+#endif // FRAMEWORKS_AI_CONVERSATION_PLUGIN_H_ 
