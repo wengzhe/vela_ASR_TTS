@@ -66,6 +66,7 @@ typedef void (*conversation_engine_uvasyncq_cb_t)(uv_async_queue_t* asyncq, void
 typedef struct conversation_engine_init_params {
     uv_loop_t* loop;
     const char* api_key;
+    bool auto_next_round; // 是否自动进入下一轮对话
     conversation_engine_uvasyncq_cb_t cb;
     void* opaque;
 } conversation_engine_init_params_t;

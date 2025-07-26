@@ -342,25 +342,33 @@ static int conversation_message_start_handler(void* message_data)
     conversation_context_t* ctx = data->ctx;
 
     env = ctx->plugin->get_env(ctx->engine);
+    if (ctx->format) {
+        free(ctx->format);
+    }
     if (audio_info && audio_info->format && !env->force_format) {
-        if (ctx->format) {
-            free(ctx->format);
-        }
         ctx->format = strdup(data->audio_info.format);
         free(data->audio_info.format);
     } else {
         ctx->format = strdup(env->format);
     }
 
-    // 初始化recorder
-    ret = ai_conversation_init_recorder(ctx);
-    if (ret < 0)
-        goto failed;
+    // ✅ 只在首次或需要重新初始化时创建recorder
+    if (!ctx->recorder_handle) {
+        ret = ai_conversation_init_recorder(ctx);
+        if (ret < 0)
+            goto failed;
+    } else {
+        AI_INFO("Recorder already initialized, reusing existing recorder");
+    }
 
-    // 初始化player
-    ret = ai_conversation_init_player(ctx);
-    if (ret < 0)
-        goto failed;
+    // ✅ 只在首次或需要重新初始化时创建player
+    if (!ctx->player_handle) {
+        ret = ai_conversation_init_player(ctx);
+        if (ret < 0)
+            goto failed;
+    } else {
+        AI_INFO("Player already initialized, reusing existing player");
+    }
 
     // 启动插件引擎
     if (ctx->plugin && ctx->plugin->start && ctx->engine) {
@@ -867,6 +875,7 @@ static int ai_conversation_map_params(conversation_context_t* ctx, const convers
     // 映射基本参数
     out_param->loop = in_param->loop;
     out_param->api_key = in_param->api_key;
+    out_param->auto_next_round = in_param->auto_next_round;
     
     // 设置回调和opaque数据
     out_param->cb = conversation_async_cb;

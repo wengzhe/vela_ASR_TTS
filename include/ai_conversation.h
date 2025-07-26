@@ -40,6 +40,7 @@ typedef struct conversation_init_params {
     int version;
     uv_loop_t* loop;
     const char* api_key;
+    bool auto_next_round; // 是否自动进入下一轮对话
     conversation_engine_type engine_type;
 } conversation_init_params_t;
 

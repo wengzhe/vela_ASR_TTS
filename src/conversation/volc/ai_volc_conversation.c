@@ -461,9 +461,17 @@ static int volc_conversation_process_server_message(volc_conversation_engine_t* 
             }
         }
         
-        // 一轮对话完成或取消，重置状态准备下一轮
+        // 一轮对话完成或取消，重置状态
         engine->state = VOLC_STATE_SESSION_CREATED;
-        engine->is_finished = false;  // 重置音频输入标志，准备下一轮
+        
+        // 根据配置决定是否自动准备下一轮
+        if (engine->config.auto_next_round) {
+            engine->is_finished = false;  // 自动重置音频输入标志，准备下一轮
+            AI_INFO("Auto next round enabled - ready for immediate input");
+        } else {
+            // 保持is_finished=true，需要手动调用start来开始下一轮
+            AI_INFO("Auto next round disabled - call start() for next round");
+        }
         
         if (strcmp(status, "cancelled") == 0) {
             AI_INFO("Response cancelled by client, ready for next conversation round");
@@ -709,13 +717,14 @@ static int volc_conversation_start(void* engine, const conversation_engine_audio
     
     AI_INFO("Starting VolcEngine conversation");
     
-    // 初始化音频输入标志  
+    // 重置音频输入标志，开始新一轮对话
     volc_engine->is_finished = false;
+    AI_INFO("Audio input enabled for new conversation round");
     
-    // 创建WebSocket连接 (thread已经在init中创建)
+    // 确保WebSocket连接可用 (复用已有连接或创建新连接)
     int ret = volc_conversation_connect_websocket(volc_engine);
     if (ret < 0) {
-        AI_INFO("Failed to create WebSocket connection");
+        AI_INFO("Failed to ensure WebSocket connection");
         return ret;
     }
     
@@ -725,6 +734,20 @@ static int volc_conversation_start(void* engine, const conversation_engine_audio
 static int volc_conversation_connect_websocket(volc_conversation_engine_t* volc_engine)
 {
     AI_INFO("Creating WebSocket connection in UV thread");
+    
+    // ✅ 检查是否已有活跃连接
+    if (volc_engine->lws_context && volc_engine->wsi) {
+        AI_INFO("WebSocket connection already active, reusing existing connection");
+        return 0;
+    }
+    
+    // ✅ 清理可能存在的旧连接
+    if (volc_engine->lws_context) {
+        AI_INFO("Cleaning up old WebSocket context before creating new one");
+        lws_context_destroy(volc_engine->lws_context);
+        volc_engine->lws_context = NULL;
+        volc_engine->wsi = NULL;
+    }
     
     // 创建WebSocket上下文
     struct lws_context_creation_info info;
