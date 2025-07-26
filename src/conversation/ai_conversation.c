@@ -581,10 +581,6 @@ static void read_buffer_cb(uv_stream_t* client, ssize_t nread, const uv_buf_t* b
     if (ctx && ctx->plugin && ctx->plugin->write_audio && ctx->engine &&
         nread > 0 && !ctx->is_closed && ctx->state != CONVERSATION_STATE_CLOSE) {
         ctx->plugin->write_audio(ctx->engine, buf->base, nread);
-        static int count = 0;
-        if (count % 20 == 0)
-            AI_INFO("conversation recorder read audio data: %d\n", nread);
-        count++;
     }
 
     if (buf->base) {
