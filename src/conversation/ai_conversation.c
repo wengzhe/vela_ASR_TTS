@@ -158,6 +158,8 @@ static void media_player_close_cb(void* cookie, int ret);
 static void media_player_event_callback(void* cookie, int event, int ret, const char* extra);
 static void write_audio_data_cb(uv_write_t* req, int status);
 
+static int ai_conversation_map_params(conversation_context_t* ctx, const conversation_init_params_t* in_param,
+                                     conversation_engine_init_params_t* out_param);
 static int ai_conversation_init_recorder(conversation_context_t* ctx);
 static int ai_conversation_init_player(conversation_context_t* ctx);
 static int ai_conversation_play_audio(conversation_context_t* ctx, const void* data, int length);
@@ -359,9 +361,9 @@ static int conversation_message_start_handler(void* message_data)
         goto failed;
 
     // 初始化player
-    // ret = ai_conversation_init_player(ctx);
-    // if (ret < 0)
-    //     goto failed;
+    ret = ai_conversation_init_player(ctx);
+    if (ret < 0)
+        goto failed;
 
     // 启动插件引擎
     if (ctx->plugin && ctx->plugin->start && ctx->engine) {
@@ -388,9 +390,9 @@ static int conversation_message_start_handler(void* message_data)
         goto failed;
     
     // 启动player
-    // ret = media_uv_player_start(ctx->player_handle, media_player_start_cb, ctx);
-    // if (ret < 0)
-    //     goto failed;
+    ret = media_uv_player_start(ctx->player_handle, media_player_start_cb, ctx);
+    if (ret < 0)
+        goto failed;
     
     ctx->state = CONVERSATION_STATE_START;
     
@@ -403,10 +405,10 @@ failed:
         media_uv_recorder_close(ctx->recorder_handle, media_recorder_close_cb);
         ctx->recorder_handle = NULL;
     }
-    // if (ctx->player_handle) {
-    //     media_uv_player_close(ctx->player_handle, 0, media_player_close_cb);
-    //     ctx->player_handle = NULL;
-    // }
+    if (ctx->player_handle) {
+        media_uv_player_close(ctx->player_handle, 0, media_player_close_cb);
+        ctx->player_handle = NULL;
+    }
     return ret;
 }
 
@@ -479,10 +481,10 @@ static int conversation_message_close_handler(void* message_data)
     }
     
     // // 关闭player
-    // if (ctx->player_handle) {
-    //     ret = media_uv_player_close(ctx->player_handle, 0, media_player_close_cb);
-    //     ctx->player_handle = NULL;
-    // }
+    if (ctx->player_handle) {
+        ret = media_uv_player_close(ctx->player_handle, 0, media_player_close_cb);
+        ctx->player_handle = NULL;
+    }
     
     // 清理focus
     if (ctx->focus_handle) {
@@ -830,6 +832,30 @@ failed:
     return -EPERM;
 }
 
+static int ai_conversation_map_params(conversation_context_t* ctx, const conversation_init_params_t* in_param,
+                                     conversation_engine_init_params_t* out_param)
+{
+    if (!ctx || !in_param || !out_param) {
+        return -EINVAL;
+    }
+
+    // 映射基本参数
+    out_param->loop = in_param->loop;
+    out_param->api_key = in_param->api_key;
+    
+    // 设置回调和opaque数据
+    out_param->cb = conversation_async_cb;
+    out_param->opaque = ctx;
+    
+    // 参数验证
+    if (!out_param->loop) {
+        AI_INFO("UV loop is required for conversation engine");
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
 static int ai_conversation_play_audio(conversation_context_t* ctx, const void* data, int length)
 {
     if (!ctx || !data || length <= 0 || !ctx->player_pipe) {
@@ -904,10 +930,23 @@ conversation_handle_t ai_conversation_create_engine(const conversation_init_para
         return NULL;
     }
     
-    // 设置引擎参数
-    ctx->voice_param.loop = ctx->loop;
-    ctx->voice_param.api_key = param->api_key;
-    ctx->voice_param.cb = conversation_async_cb;
+    // 学习ASR架构：初始化user_asyncq用于事件回调
+    ctx->user_asyncq.data = ctx;
+    if (uv_async_queue_init(ctx->loop, &ctx->user_asyncq, conversation_async_cb) < 0) {
+        AI_INFO("Failed to initialize user async queue");
+        uv_close((uv_handle_t*)ctx->asyncq, NULL);
+        free(ctx->asyncq);
+        free(ctx);
+        return NULL;
+    }
+    
+    // 映射引擎参数
+    if (ai_conversation_map_params(ctx, param, &ctx->voice_param) < 0) {
+        AI_INFO("Failed to map conversation parameters");
+        free(ctx->asyncq);
+        free(ctx);
+        return NULL;
+    }
     
     // 初始化插件
     ctx->plugin = plugin;
@@ -1118,6 +1157,10 @@ int ai_conversation_close(conversation_handle_t handle)
     while (!ctx->is_closed && uv_loop_alive(ctx->loop)) {
         uv_run(ctx->loop, UV_RUN_ONCE);
     }
+    
+    // 学习ASR架构：正确关闭user_asyncq
+    uv_handle_set_data((uv_handle_t*)&(ctx->user_asyncq), ctx);
+    uv_close((uv_handle_t*)&(ctx->user_asyncq), NULL);
     
     // 清理资源
     free(ctx->asyncq);

@@ -286,7 +286,7 @@ CMD0(create_tts_engine)
 
 CMD0(create_conv_engine)
 {
-    conversation_init_params_t param;
+    conversation_init_params_t param = {0};
     int i;
 
     for (i = 0; i < AITOOL_MAX_CHAIN; i++) {

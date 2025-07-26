@@ -69,6 +69,7 @@ typedef struct conversation_engine_init_params {
     uv_loop_t* loop;
     const char* api_key;
     conversation_engine_uvasyncq_cb_t cb;
+    void* opaque;
 } conversation_engine_init_params_t;
 
 typedef struct conversation_engine_env_params {
