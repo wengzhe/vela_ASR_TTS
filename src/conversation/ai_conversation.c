@@ -60,7 +60,6 @@ typedef struct conversation_context {
     void* player_handle;   // player handle
     void* focus_handle;
     uv_loop_t* loop;
-    uv_loop_t* user_loop;
     uv_async_queue_t* asyncq;
     uv_async_queue_t user_asyncq;
     uv_pipe_t* recorder_pipe;
@@ -132,7 +131,6 @@ typedef struct message_data_cb_s {
 
 static conversation_engine_plugin_t* conversation_get_plugin(conversation_engine_type engine_type);
 static void conversation_async_cb(uv_async_queue_t* asyncq, void* data);
-static void conversation_user_async_cb(uv_async_queue_t* asyncq, void* data);
 static void conversation_engine_event_cb(conversation_engine_event_t event, 
                                         const conversation_engine_result_t* result, 
                                         void* cookie);
@@ -201,23 +199,6 @@ static void conversation_async_cb(uv_async_queue_t* asyncq, void* data)
     free(message);
 }
 
-static void conversation_user_async_cb(uv_async_queue_t* asyncq, void* data)
-{
-    message_t* message = (message_t*)data;
-    
-    if (!message || !message->message_handler) {
-        AI_INFO("Invalid message in conversation user async callback");
-        return;
-    }
-    
-    message->message_handler(message->message_data);
-    
-    if (message->message_data) {
-        free(message->message_data);
-    }
-    free(message);
-}
-
 /****************************************************************************
  * Engine Event Callback
  ****************************************************************************/
@@ -245,12 +226,15 @@ static void conversation_engine_event_cb(conversation_engine_event_t event,
         case conversation_engine_event_complete:
             user_event = conversation_event_complete;
             break;
-        case conversation_engine_event_result:
+        case conversation_engine_event_audio:
             user_event = conversation_event_response_audio;
             // 播放接收到的音频数据
             if (result && result->result && result->len > 0) {
                 ai_conversation_play_audio(ctx, result->result, result->len);
             }
+            break;
+        case conversation_engine_event_text:
+            user_event = conversation_event_response_text;
             break;
         case conversation_engine_event_error:
             user_event = conversation_event_error;
@@ -273,8 +257,11 @@ static void conversation_engine_event_cb(conversation_engine_event_t event,
     // 复制结果数据
     if (result) {
         if (result->result) {
-            cb_data->result.text = strdup(result->result);
-            cb_data->result.duration = result->len;
+            cb_data->result.result = zalloc(result->len + 1);
+            if (cb_data->result.result) {
+                memcpy(cb_data->result.result, result->result, result->len);
+            }
+            cb_data->result.len = result->len;
         }
         
         // 映射错误码
@@ -345,32 +332,37 @@ static int conversation_message_listener_handler(void* message_data)
 static int conversation_message_start_handler(void* message_data)
 {
     message_data_start_t* data = (message_data_start_t*)message_data;
+    const conversation_audio_info_t* audio_info = &data->audio_info;
+    conversation_engine_env_params_t* env;
     int ret;
-    
+
     if (!data || !data->ctx) {
         return -EINVAL;
     }
-    
+
     conversation_context_t* ctx = data->ctx;
-    
-    // 设置音频格式
-    if (data->audio_info.format) {
+
+    env = ctx->plugin->get_env(ctx->engine);
+    if (audio_info && audio_info->format && !env->force_format) {
         if (ctx->format) {
             free(ctx->format);
         }
         ctx->format = strdup(data->audio_info.format);
+        free(data->audio_info.format);
+    } else {
+        ctx->format = strdup(env->format);
     }
-    
+
     // 初始化recorder
     ret = ai_conversation_init_recorder(ctx);
     if (ret < 0)
         goto failed;
-    
+
     // 初始化player
-    ret = ai_conversation_init_player(ctx);
-    if (ret < 0)
-        goto failed;
-    
+    // ret = ai_conversation_init_player(ctx);
+    // if (ret < 0)
+    //     goto failed;
+
     // 启动插件引擎
     if (ctx->plugin && ctx->plugin->start && ctx->engine) {
         conversation_engine_audio_info_t engine_audio_info = {
@@ -396,9 +388,9 @@ static int conversation_message_start_handler(void* message_data)
         goto failed;
     
     // 启动player
-    ret = media_uv_player_start(ctx->player_handle, media_player_start_cb, ctx);
-    if (ret < 0)
-        goto failed;
+    // ret = media_uv_player_start(ctx->player_handle, media_player_start_cb, ctx);
+    // if (ret < 0)
+    //     goto failed;
     
     ctx->state = CONVERSATION_STATE_START;
     
@@ -411,10 +403,10 @@ failed:
         media_uv_recorder_close(ctx->recorder_handle, media_recorder_close_cb);
         ctx->recorder_handle = NULL;
     }
-    if (ctx->player_handle) {
-        media_uv_player_close(ctx->player_handle, 0, media_player_close_cb);
-        ctx->player_handle = NULL;
-    }
+    // if (ctx->player_handle) {
+    //     media_uv_player_close(ctx->player_handle, 0, media_player_close_cb);
+    //     ctx->player_handle = NULL;
+    // }
     return ret;
 }
 
@@ -486,11 +478,11 @@ static int conversation_message_close_handler(void* message_data)
         ctx->recorder_handle = NULL;
     }
     
-    // 关闭player
-    if (ctx->player_handle) {
-        ret = media_uv_player_close(ctx->player_handle, 0, media_player_close_cb);
-        ctx->player_handle = NULL;
-    }
+    // // 关闭player
+    // if (ctx->player_handle) {
+    //     ret = media_uv_player_close(ctx->player_handle, 0, media_player_close_cb);
+    //     ctx->player_handle = NULL;
+    // }
     
     // 清理focus
     if (ctx->focus_handle) {
@@ -525,11 +517,8 @@ static int conversation_message_cb_handler(void* message_data)
     data->ctx->cb(data->event, &data->result, data->ctx->cookie);
     
     // 清理结果数据
-    if (data->result.text) {
-        free((void*)data->result.text);
-    }
-    if (data->result.audio_data) {
-        free((void*)data->result.audio_data);
+    if (data->result.result) {
+        free((void*)data->result.result);
     }
     
     return 0;
@@ -745,7 +734,7 @@ static int ai_conversation_init_recorder(conversation_context_t* ctx)
     }
 
     // 请求录音焦点
-    ctx->focus_handle = media_focus_request(&init_suggestion, MEDIA_SCENARIO_ASR, 
+    ctx->focus_handle = media_focus_request(&init_suggestion, MEDIA_SCENARIO_TTS, 
                                           ai_conversation_focus_callback, ctx);
     if (init_suggestion != MEDIA_FOCUS_PLAY && ctx->focus_handle) {
         AI_INFO("conversation recorder focus failed");
@@ -848,12 +837,12 @@ static int ai_conversation_play_audio(conversation_context_t* ctx, const void* d
     }
     
     // 将音频数据加入缓冲区
-    if (ai_ring_buffer_space_avail(&ctx->buffer) < length) {
+    if (ai_ring_buffer_is_full(&ctx->buffer)) {
         AI_INFO("Audio buffer full, dropping data");
         return -ENOSPC;
     }
     
-    ai_ring_buffer_enqueue_arr(&ctx->buffer, (const char*)data, length);
+    ai_ring_buffer_queue_arr(&ctx->buffer, (const char*)data, length);
     
     // 如果当前没有写操作在进行，启动写操作
     if (ai_ring_buffer_num_items(&ctx->buffer) > 0 && !ctx->write_req.data) {
@@ -884,12 +873,6 @@ conversation_handle_t ai_conversation_create_engine(const conversation_init_para
         return NULL;
     }
     
-    // 验证参数
-    if (param->timeout < CONVERSATION_MIN_TIMEOUT || param->timeout > CONVERSATION_MAX_TIMEOUT) {
-        AI_INFO("Invalid timeout value: %d", param->timeout);
-        return NULL;
-    }
-    
     // 获取插件
     plugin = conversation_get_plugin(param->engine_type);
     if (!plugin) {
@@ -906,7 +889,6 @@ conversation_handle_t ai_conversation_create_engine(const conversation_init_para
     
     // 初始化异步队列
     ctx->loop = param->loop;
-    ctx->user_loop = param->loop;
     
     ctx->asyncq = calloc(1, sizeof(uv_async_queue_t));
     if (!ctx->asyncq) {
@@ -922,32 +904,16 @@ conversation_handle_t ai_conversation_create_engine(const conversation_init_para
         return NULL;
     }
     
-    if (uv_async_queue_init(ctx->user_loop, &ctx->user_asyncq, conversation_user_async_cb) < 0) {
-        AI_INFO("Failed to initialize user async queue");
-        uv_async_queue_uninit(ctx->asyncq);
-        free(ctx->asyncq);
-        free(ctx);
-        return NULL;
-    }
-    
     // 设置引擎参数
     ctx->voice_param.loop = ctx->loop;
-    ctx->voice_param.language = param->language;
-    ctx->voice_param.voice = param->voice;
-    ctx->voice_param.instructions = param->instructions;
-    ctx->voice_param.silence_timeout = param->timeout;
-    ctx->voice_param.app_id = param->app_id;
-    ctx->voice_param.app_key = param->app_key;
+    ctx->voice_param.api_key = param->api_key;
     ctx->voice_param.cb = conversation_async_cb;
-    ctx->voice_param.opaque = ctx;
     
     // 初始化插件
     ctx->plugin = plugin;
     ctx->engine = conversation_plugin_init(plugin, &ctx->voice_param);
     if (!ctx->engine) {
         AI_INFO("Failed to initialize conversation plugin");
-        uv_async_queue_uninit(&ctx->user_asyncq);
-        uv_async_queue_uninit(ctx->asyncq);
         free(ctx->asyncq);
         free(ctx);
         return NULL;
@@ -1000,7 +966,7 @@ int ai_conversation_start(conversation_handle_t handle,
 {
     conversation_context_t* ctx = (conversation_context_t*)handle;
     
-    if (!ctx || !audio_info) {
+    if (!ctx) {
         return -EINVAL;
     }
     
@@ -1008,20 +974,21 @@ int ai_conversation_start(conversation_handle_t handle,
         return -EBADF;
     }
     
-    message_data_start_t* data = calloc(1, sizeof(message_data_start_t));
+    message_data_start_t* data = zalloc(sizeof(message_data_start_t));
     if (!data) {
         return -ENOMEM;
     }
     
     data->ctx = ctx;
-    memcpy(&data->audio_info, audio_info, sizeof(conversation_audio_info_t));
-    
-    // 复制格式字符串
-    if (audio_info->format) {
-        data->audio_info.format = strdup(audio_info->format);
+
+    if (audio_info) {
+        memcpy(&data->audio_info, audio_info, sizeof(conversation_audio_info_t));
+        if (audio_info->format && strlen(audio_info->format) > 0) {
+            data->audio_info.format = strdup(audio_info->format);
+        }
     }
     
-    message_t* message = calloc(1, sizeof(message_t));
+    message_t* message = zalloc(sizeof(message_t));
     if (!message) {
         if (data->audio_info.format) {
             free(data->audio_info.format);
@@ -1036,8 +1003,6 @@ int ai_conversation_start(conversation_handle_t handle,
     
     return uv_async_queue_send(ctx->asyncq, message);
 }
-
-
 
 int ai_conversation_finish(conversation_handle_t handle)
 {
@@ -1155,8 +1120,6 @@ int ai_conversation_close(conversation_handle_t handle)
     }
     
     // 清理资源
-    uv_async_queue_uninit(&ctx->user_asyncq);
-    uv_async_queue_uninit(ctx->asyncq);
     free(ctx->asyncq);
     free(ctx);
     

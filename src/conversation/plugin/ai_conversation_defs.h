@@ -29,7 +29,8 @@ typedef enum {
     conversation_engine_event_start,
     conversation_engine_event_stop,
     conversation_engine_event_complete,
-    conversation_engine_event_result,
+    conversation_engine_event_audio,
+    conversation_engine_event_text,
     conversation_engine_event_error,
 } conversation_engine_event_t;
 
@@ -66,21 +67,14 @@ typedef void (*conversation_engine_uvasyncq_cb_t)(uv_async_queue_t* asyncq, void
 
 typedef struct conversation_engine_init_params {
     uv_loop_t* loop;
-    const char* language;
-    const char* voice;
-    const char* instructions;
-    int silence_timeout;
-    const char* app_id;
-    const char* app_key;
+    const char* api_key;
     conversation_engine_uvasyncq_cb_t cb;
-    void* opaque;
 } conversation_engine_init_params_t;
 
 typedef struct conversation_engine_env_params {
     uv_loop_t* loop;
     const char* format;
     int force_format;
-    uv_async_queue_t* asyncq;
 } conversation_engine_env_params_t;
 
 #endif // FRAMEWORKS_AI_CONVERSATION_DEFS_H_ 

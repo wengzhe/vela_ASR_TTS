@@ -39,12 +39,7 @@ typedef enum {
 typedef struct conversation_init_params {
     int version;
     uv_loop_t* loop;
-    const char* language; // zh-CN
-    const char* voice; // zh_xiaoyun_bigtts
-    const char* instructions; // system prompt
-    int timeout; // 30000ms
-    const char* app_id;
-    const char* app_key;
+    const char* api_key;
     conversation_engine_type engine_type;
 } conversation_init_params_t;
 
@@ -73,10 +68,8 @@ typedef enum {
 } conversation_error_t;
 
 typedef struct conversation_result {
-    const char* text;
-    const void* audio_data;
-    int audio_length;
-    int duration;
+    char* result;
+    int len;
     conversation_error_t error_code;
 } conversation_result_t;
 
