@@ -140,6 +140,8 @@ static int conversation_message_start_handler(void* message_data);
 static int conversation_message_finish_handler(void* message_data);
 static int conversation_message_cancel_handler(void* message_data);
 static int conversation_message_close_handler(void* message_data);
+static void conversation_uvasyncq_close_cb(uv_handle_t* handle);
+static void conversation_close_async(conversation_context_t* ctx);
 static int conversation_message_cb_handler(void* message_data);
 
 // Media callbacks
@@ -216,14 +218,14 @@ static void conversation_engine_event_cb(conversation_engine_event_t event,
         return;
     }
     
-    // 映射事件类型
-    conversation_event_t user_event;
+    // 映射事件类型 - 现在是一一对应
+    conversation_event_t user_event = conversation_event_unknown;
     switch (event) {
         case conversation_engine_event_start:
-            user_event = conversation_event_listening;
+            user_event = conversation_event_start;
             break;
         case conversation_engine_event_stop:
-            user_event = conversation_event_complete;
+            user_event = conversation_event_stop;
             break;
         case conversation_engine_event_complete:
             user_event = conversation_event_complete;
@@ -238,10 +240,13 @@ static void conversation_engine_event_cb(conversation_engine_event_t event,
         case conversation_engine_event_text:
             user_event = conversation_event_response_text;
             break;
+        case conversation_engine_event_input_text:
+            user_event = conversation_event_input_text;
+            break;
         case conversation_engine_event_error:
             user_event = conversation_event_error;
             break;
-        default:
+        case conversation_engine_event_unknown:
             user_event = conversation_event_unknown;
             break;
     }
@@ -265,31 +270,23 @@ static void conversation_engine_event_cb(conversation_engine_event_t event,
             }
             cb_data->result.len = result->len;
         }
-        
-        // 映射错误码
+
+        // 映射错误码 - 现在是一一对应
+        cb_data->result.error_code = conversation_error_unknown;
         switch (result->error_code) {
             case conversation_engine_error_success:
-                cb_data->result.error_code = conversation_error_unknown; // 成功时不应有错误码
+                cb_data->result.error_code = conversation_error_success;
                 break;
             case conversation_engine_error_network:
                 cb_data->result.error_code = conversation_error_network;
                 break;
-            case conversation_engine_error_auth:
-                cb_data->result.error_code = conversation_error_auth;
-                break;
-            case conversation_engine_error_timeout:
-                cb_data->result.error_code = conversation_error_timeout;
-                break;
-            case conversation_engine_error_audio_format:
-                cb_data->result.error_code = conversation_error_audio_format;
-                break;
             case conversation_engine_error_server:
-                cb_data->result.error_code = conversation_error_failed;
+                cb_data->result.error_code = conversation_error_server;
                 break;
-            case conversation_engine_error_connect_failed:
-                cb_data->result.error_code = conversation_error_network;
+            case conversation_engine_error_cancelled:
+                cb_data->result.error_code = conversation_error_cancelled;
                 break;
-            default:
+            case conversation_engine_error_unknown:
                 cb_data->result.error_code = conversation_error_unknown;
                 break;
         }
@@ -503,9 +500,29 @@ static int conversation_message_close_handler(void* message_data)
         ctx->frame_buf = NULL;
     }
     
+    // ✅ 学习ASR架构：在UV loop线程中清理user_asyncq
+    conversation_close_async(ctx);
+    
     AI_INFO("ai_conversation_close_handler");
     
     return ret;
+}
+
+static void conversation_close_async(conversation_context_t* ctx)
+{
+    uv_handle_set_data((uv_handle_t*)&(ctx->user_asyncq), ctx);
+    uv_close((uv_handle_t*)&(ctx->user_asyncq), conversation_uvasyncq_close_cb);
+}
+
+static void conversation_uvasyncq_close_cb(uv_handle_t* handle)
+{
+    conversation_context_t* ctx = uv_handle_get_data((const uv_handle_t*)handle);
+    
+    // ✅ 在回调中清理最终资源
+    free(ctx->asyncq);
+    free(ctx);
+    
+    AI_INFO("conversation_uvasyncq_close_cb - resources cleaned");
 }
 
 static int conversation_message_cb_handler(void* message_data)
@@ -552,7 +569,9 @@ static void read_buffer_cb(uv_stream_t* client, ssize_t nread, const uv_buf_t* b
 {
     conversation_context_t* ctx = uv_handle_get_data((uv_handle_t*)client);
     
-    if (ctx && ctx->plugin && ctx->plugin->write_audio && ctx->engine && nread > 0) {
+    // 检查连接状态，如果已关闭则不处理音频数据
+    if (ctx && ctx->plugin && ctx->plugin->write_audio && ctx->engine && 
+        nread > 0 && !ctx->is_closed && ctx->state != CONVERSATION_STATE_CLOSE) {
         ctx->plugin->write_audio(ctx->engine, buf->base, nread);
         static int count = 0;
         if (count % 20 == 0)
@@ -582,6 +601,7 @@ static void media_recorder_prepare_connect_cb(void* cookie, int ret, void* obj)
 static void media_recorder_open_cb(void* cookie, int ret)
 {
     conversation_context_t* ctx = cookie;
+    UNUSED(ctx);
 
     if (ret < 0) {
         AI_INFO("conversation recorder open cb error:%d", ret);
@@ -592,6 +612,7 @@ static void media_recorder_open_cb(void* cookie, int ret)
 static void media_recorder_start_cb(void* cookie, int ret)
 {
     conversation_context_t* ctx = cookie;
+    UNUSED(ctx);
 
     if (ret < 0) {
         AI_INFO("conversation recorder start cb error:%d", ret);
@@ -607,6 +628,7 @@ static void media_recorder_close_cb(void* cookie, int ret)
 static void media_recorder_event_callback(void* cookie, int event, int ret, const char* extra)
 {
     conversation_context_t* ctx = cookie;
+    UNUSED(ctx);
 
     if (ret < 0) {
         AI_INFO("conversation recorder event error:%d", ret);
@@ -650,6 +672,7 @@ static void media_player_prepare_connect_cb(void* cookie, int ret, void* obj)
 static void media_player_open_cb(void* cookie, int ret)
 {
     conversation_context_t* ctx = cookie;
+    UNUSED(ctx);
 
     if (ret < 0) {
         AI_INFO("conversation player open cb error:%d", ret);
@@ -660,6 +683,7 @@ static void media_player_open_cb(void* cookie, int ret)
 static void media_player_start_cb(void* cookie, int ret)
 {
     conversation_context_t* ctx = cookie;
+    UNUSED(ctx);
 
     if (ret < 0) {
         AI_INFO("conversation player start cb error:%d", ret);
@@ -675,6 +699,7 @@ static void media_player_close_cb(void* cookie, int ret)
 static void media_player_event_callback(void* cookie, int event, int ret, const char* extra)
 {
     conversation_context_t* ctx = cookie;
+    UNUSED(ctx);
 
     if (ret < 0) {
         AI_INFO("conversation player event error:%d", ret);
@@ -1151,21 +1176,6 @@ int ai_conversation_close(conversation_handle_t handle)
     message->message_handler = conversation_message_close_handler;
     message->message_data = data;
     
-    int ret = uv_async_queue_send(ctx->asyncq, message);
-    
-    // 等待关闭完成
-    while (!ctx->is_closed && uv_loop_alive(ctx->loop)) {
-        uv_run(ctx->loop, UV_RUN_ONCE);
-    }
-    
-    // 学习ASR架构：正确关闭user_asyncq
-    uv_handle_set_data((uv_handle_t*)&(ctx->user_asyncq), ctx);
-    uv_close((uv_handle_t*)&(ctx->user_asyncq), NULL);
-    
-    // 清理资源
-    free(ctx->asyncq);
-    free(ctx);
-    
-    AI_INFO("Conversation engine closed");
-    return ret;
+    // ✅ 学习ASR/TTS：只发送消息，不在主线程运行UV loop
+    return uv_async_queue_send(ctx->asyncq, message);
 } 

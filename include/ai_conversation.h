@@ -45,26 +45,21 @@ typedef struct conversation_init_params {
 
 typedef enum {
     conversation_event_unknown,
-    conversation_event_connected,
-    conversation_event_session_created,
-    conversation_event_listening,
-    conversation_event_processing,
-    conversation_event_speaking,
-    conversation_event_user_transcript,
+    conversation_event_start,
+    conversation_event_stop,
+    conversation_event_complete,
+    conversation_event_input_text,
     conversation_event_response_audio,
     conversation_event_response_text,
-    conversation_event_complete,
     conversation_event_error,
-    conversation_event_disconnected,
 } conversation_event_t;
 
 typedef enum {
+    conversation_error_success = 0,
     conversation_error_unknown,
-    conversation_error_failed,
     conversation_error_network,
-    conversation_error_auth,
-    conversation_error_timeout,
-    conversation_error_audio_format,
+    conversation_error_server,
+    conversation_error_cancelled,
 } conversation_error_t;
 
 typedef struct conversation_result {

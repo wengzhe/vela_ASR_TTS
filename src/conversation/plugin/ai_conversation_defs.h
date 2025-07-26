@@ -29,8 +29,9 @@ typedef enum {
     conversation_engine_event_start,
     conversation_engine_event_stop,
     conversation_engine_event_complete,
-    conversation_engine_event_audio,
-    conversation_engine_event_text,
+    conversation_engine_event_input_text,
+    conversation_engine_event_audio, // Response audio
+    conversation_engine_event_text, // Response text
     conversation_engine_event_error,
 } conversation_engine_event_t;
 
@@ -38,11 +39,8 @@ typedef enum {
     conversation_engine_error_success = 0,
     conversation_engine_error_unknown,
     conversation_engine_error_network,
-    conversation_engine_error_auth,
-    conversation_engine_error_timeout,
-    conversation_engine_error_audio_format,
     conversation_engine_error_server,
-    conversation_engine_error_connect_failed,
+    conversation_engine_error_cancelled,
 } conversation_engine_error_t;
 
 typedef struct conversation_engine_result {

@@ -215,15 +215,21 @@ static void aitool_conv_callback(conversation_event_t event, const conversation_
         printf("Conversation response audio: %d\n", result->len);
     } else if (event == conversation_event_response_text) {
         printf("Conversation response text: %s\n", result->result);
+    } else if (event == conversation_event_input_text) {
+        printf("Conversation input text: %s\n", result->result);
     } else if (event == conversation_event_complete) {
         printf("Conversation complete\n");
     } else if (event == conversation_event_error) {
         printf("Conversation error: %d\n", result->error_code);
-    } else if (event == conversation_event_listening) {
-        printf("Conversation listening\n");
+    } else if (event == conversation_event_start) {
+        printf("Conversation start\n");
+    } else if (event == conversation_event_stop) {
+        printf("Conversation stop\n");
     } else {
         printf("Unknown event: %d\n", event);
     }
+
+    printf("Conversation aitool:%p\n", aitool);
 }
 
 /****************************************************************************
@@ -314,7 +320,7 @@ CMD0(create_conv_engine)
 CMD1(start, int, id)
 {
     asr_handle_t handle;
-    int ret;
+    int ret = -EINVAL;
 
     printf("Start ID before0:%d\n", id);
 
@@ -367,7 +373,7 @@ CMD2(speak, int, id, string_t, text)
 CMD1(finish, int, id)
 {
     void* handle;
-    int ret;
+    int ret = -EINVAL;
 
     if (id < 0 || id >= AITOOL_MAX_CHAIN)
         return -1;
@@ -396,7 +402,7 @@ CMD1(finish, int, id)
 CMD1(cancel, int, id)
 {
     asr_handle_t handle;
-    int ret;
+    int ret = -EINVAL;
 
     if (id < 0 || id >= AITOOL_MAX_CHAIN)
         return -1;
@@ -420,7 +426,7 @@ CMD1(cancel, int, id)
 CMD1(is_busy, int, id)
 {
     void* handle;
-    int ret;
+    int ret = -EINVAL;
 
     if (id < 0 || id >= AITOOL_MAX_CHAIN)
         return -1;
@@ -446,7 +452,7 @@ CMD1(is_busy, int, id)
 CMD1(close, int, id)
 {
     void* handle;
-    int ret;
+    int ret = -EINVAL;
 
     if (id < 0 || id >= AITOOL_MAX_CHAIN)
         return -1;
