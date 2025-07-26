@@ -23,7 +23,7 @@
 #include "ai_common.h"
 #include "ai_conversation_plugin.h"
 
-void* conversation_plugin_init(conversation_engine_plugin_t* plugin, 
+void* conversation_plugin_init(conversation_engine_plugin_t* plugin,
                               const conversation_engine_init_params_t* param)
 {
     int ret;

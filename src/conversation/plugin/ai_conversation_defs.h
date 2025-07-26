@@ -57,8 +57,8 @@ typedef struct conversation_engine_audio_info {
     int sample_bit; // 16
 } conversation_engine_audio_info_t;
 
-typedef void (*conversation_engine_callback_t)(conversation_engine_event_t event, 
-                                              const conversation_engine_result_t* result, 
+typedef void (*conversation_engine_callback_t)(conversation_engine_event_t event,
+                                              const conversation_engine_result_t* result,
                                               void* cookie);
 
 typedef void (*conversation_engine_uvasyncq_cb_t)(uv_async_queue_t* asyncq, void* data);
@@ -77,4 +77,4 @@ typedef struct conversation_engine_env_params {
     int force_format;
 } conversation_engine_env_params_t;
 
-#endif // FRAMEWORKS_AI_CONVERSATION_DEFS_H_ 
+#endif // FRAMEWORKS_AI_CONVERSATION_DEFS_H_

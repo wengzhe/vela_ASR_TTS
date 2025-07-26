@@ -37,8 +37,8 @@ typedef struct conversation_engine_plugin_s {
     conversation_engine_env_params_t* (*get_env)(void* engine);
 } conversation_engine_plugin_t;
 
-void* conversation_plugin_init(conversation_engine_plugin_t* plugin, 
+void* conversation_plugin_init(conversation_engine_plugin_t* plugin,
                               const conversation_engine_init_params_t* param);
 void conversation_plugin_uninit(conversation_engine_plugin_t* plugin, void* engine, int sync);
 
-#endif // FRAMEWORKS_AI_CONVERSATION_PLUGIN_H_ 
+#endif // FRAMEWORKS_AI_CONVERSATION_PLUGIN_H_
